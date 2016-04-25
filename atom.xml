@@ -4,7 +4,7 @@
   <title><![CDATA[a sleepy programmer's blog]]></title>
   <link href="http://prasadsurase.github.io/atom.xml" rel="self"/>
   <link href="http://prasadsurase.github.io/"/>
-  <updated>2016-04-26T01:34:11+05:30</updated>
+  <updated>2016-04-26T01:46:54+05:30</updated>
   <id>http://prasadsurase.github.io/</id>
   <author>
     <name><![CDATA[Prasad Surase]]></name>
@@ -162,7 +162,7 @@ which check if the order is valid or not and calls the ordering query.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Hope it was interesting.</p>
+<p>Working source code can be found <a href="https://github.com/prasadsurase/active_admin_with_json_field">here</a>. Hope it was interesting.</p>
 ]]></content>
   </entry>
   

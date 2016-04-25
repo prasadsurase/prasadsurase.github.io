@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Activeadmin | a sleepy programmer's blog]]></title>
   <link href="http://prasadsurase.github.io/blog/categories/activeadmin/atom.xml" rel="self"/>
   <link href="http://prasadsurase.github.io/"/>
-  <updated>2016-04-26T01:34:11+05:30</updated>
+  <updated>2016-04-26T01:46:54+05:30</updated>
   <id>http://prasadsurase.github.io/</id>
   <author>
     <name><![CDATA[Prasad Surase]]></name>
@@ -99,7 +99,7 @@ def apply_sorting(chain)
 end
 </code></pre>
 
-<p>Hope it was interesting.</p>
+<p>Working source code can be found <a href="https://github.com/prasadsurase/active_admin_with_json_field">here</a>. Hope it was interesting.</p>
 ]]></content>
   </entry>
   
