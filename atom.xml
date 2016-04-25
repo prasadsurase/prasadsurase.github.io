@@ -1,16 +1,169 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[My Octopress Blog]]></title>
+  <title><![CDATA[a sleepy programmer's blog]]></title>
   <link href="http://prasadsurase.github.io/atom.xml" rel="self"/>
   <link href="http://prasadsurase.github.io/"/>
-  <updated>2016-04-25T21:44:14+05:30</updated>
+  <updated>2016-04-26T01:21:21+05:30</updated>
   <id>http://prasadsurase.github.io/</id>
   <author>
-    <name><![CDATA[Your Name]]></name>
-    
+    <name><![CDATA[Prasad Surase]]></name>
+    <email><![CDATA[prasadsurase@gmail.com]]></email>
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Sorting for Json Keys as Column in Active Admin]]></title>
+    <link href="http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns/"/>
+    <updated>2016-04-25T23:01:50+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns</id>
+    <content type="html"><![CDATA[<p>Recently, I had a requirement wherein I need to have sorting on the keys of a json column data. We were using postgres 9.4 and the
+schema of the json data was static for all the records. The keys needed to be displayed as columns with sorting enabled against them.
+Below is the way I implemented it. Also, on digging into ActiveAdmin, I learned some interesting implementation details of the library.</p>
+
+<p>Lets take an example. We have a model named Box which stores (length, width &amp; height) as json in a column named dimensions.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="err">\</span><span class="n">d</span> <span class="n">boxes</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">Table</span> <span class="ss">&quot;public.boxes&quot;</span>
+</span><span class='line'><span class="k">Column</span>   <span class="o">|</span>            <span class="k">Type</span>             <span class="o">|</span>                     <span class="n">Modifiers</span>
+</span><span class='line'><span class="c1">------------+-----------------------------+----------------------------------------------------</span>
+</span><span class='line'><span class="n">id</span>         <span class="o">|</span> <span class="nb">integer</span>                     <span class="o">|</span> <span class="k">not</span> <span class="k">null</span> <span class="k">default</span> <span class="n">nextval</span><span class="p">(</span><span class="s1">&#39;boxes_id_seq&#39;</span><span class="p">::</span><span class="n">regclass</span><span class="p">)</span>
+</span><span class='line'><span class="n">user_id</span>    <span class="o">|</span> <span class="nb">integer</span>                     <span class="o">|</span>
+</span><span class='line'><span class="n">dimensions</span> <span class="o">|</span> <span class="n">json</span>                        <span class="o">|</span>
+</span><span class='line'><span class="n">volume</span>     <span class="o">|</span> <span class="nb">integer</span>                     <span class="o">|</span>
+</span><span class='line'><span class="n">created_at</span> <span class="o">|</span> <span class="k">timestamp</span> <span class="k">without</span> <span class="n">time</span> <span class="k">zone</span> <span class="o">|</span> <span class="k">not</span> <span class="k">null</span>
+</span><span class='line'><span class="n">updated_at</span> <span class="o">|</span> <span class="k">timestamp</span> <span class="k">without</span> <span class="n">time</span> <span class="k">zone</span> <span class="o">|</span> <span class="k">not</span> <span class="k">null</span>
+</span><span class='line'><span class="n">Indexes</span><span class="p">:</span>
+</span><span class='line'><span class="ss">&quot;boxes_pkey&quot;</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span> <span class="n">btree</span> <span class="p">(</span><span class="n">id</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">#</span> <span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">boxes</span> <span class="k">limit</span> <span class="mi">5</span><span class="p">;</span>
+</span><span class='line'>  <span class="n">id</span> <span class="o">|</span> <span class="n">user_id</span> <span class="o">|</span>             <span class="n">dimensions</span>              <span class="o">|</span> <span class="n">volume</span> <span class="o">|</span>         <span class="n">created_at</span>         <span class="o">|</span>         <span class="n">updated_at</span>
+</span><span class='line'> <span class="c1">----+---------+-------------------------------------+--------+----------------------------+----------------------------</span>
+</span><span class='line'>   <span class="mi">1</span> <span class="o">|</span>       <span class="mi">3</span> <span class="o">|</span> <span class="err">{</span><span class="ss">&quot;length&quot;</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span><span class="ss">&quot;breadth&quot;</span><span class="p">:</span><span class="mi">7</span><span class="p">,</span><span class="ss">&quot;height&quot;</span><span class="p">:</span><span class="mi">3</span><span class="err">}</span> <span class="o">|</span>     <span class="mi">84</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">24</span><span class="p">:</span><span class="mi">54</span><span class="p">.</span><span class="mi">281761</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">21</span><span class="p">.</span><span class="mi">885756</span>
+</span><span class='line'>   <span class="mi">2</span> <span class="o">|</span>       <span class="mi">3</span> <span class="o">|</span> <span class="err">{</span><span class="ss">&quot;length&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="ss">&quot;breadth&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="ss">&quot;height&quot;</span><span class="p">:</span><span class="mi">8</span><span class="err">}</span> <span class="o">|</span>     <span class="mi">72</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">24</span><span class="p">:</span><span class="mi">54</span><span class="p">.</span><span class="mi">28487</span>  <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">21</span><span class="p">.</span><span class="mi">904715</span>
+</span><span class='line'>   <span class="mi">3</span> <span class="o">|</span>       <span class="mi">2</span> <span class="o">|</span> <span class="err">{</span><span class="ss">&quot;length&quot;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="ss">&quot;breadth&quot;</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span><span class="ss">&quot;height&quot;</span><span class="p">:</span><span class="mi">3</span><span class="err">}</span> <span class="o">|</span>     <span class="mi">12</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">24</span><span class="p">:</span><span class="mi">54</span><span class="p">.</span><span class="mi">287235</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">21</span><span class="p">.</span><span class="mi">911726</span>
+</span><span class='line'>   <span class="mi">4</span> <span class="o">|</span>       <span class="mi">4</span> <span class="o">|</span> <span class="err">{</span><span class="ss">&quot;length&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="ss">&quot;breadth&quot;</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span><span class="ss">&quot;height&quot;</span><span class="p">:</span><span class="mi">4</span><span class="err">}</span> <span class="o">|</span>      <span class="mi">0</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">24</span><span class="p">:</span><span class="mi">54</span><span class="p">.</span><span class="mi">289777</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">21</span><span class="p">.</span><span class="mi">917753</span>
+</span><span class='line'>   <span class="mi">5</span> <span class="o">|</span>       <span class="mi">4</span> <span class="o">|</span> <span class="err">{</span><span class="ss">&quot;length&quot;</span><span class="p">:</span><span class="mi">7</span><span class="p">,</span><span class="ss">&quot;breadth&quot;</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span><span class="ss">&quot;height&quot;</span><span class="p">:</span><span class="mi">0</span><span class="err">}</span> <span class="o">|</span>      <span class="mi">0</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">24</span><span class="p">:</span><span class="mi">54</span><span class="p">.</span><span class="mi">292116</span> <span class="o">|</span> <span class="mi">2016</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">19</span> <span class="mi">18</span><span class="p">:</span><span class="mi">30</span><span class="p">:</span><span class="mi">21</span><span class="p">.</span><span class="mi">924538</span>
+</span><span class='line'><span class="p">(</span><span class="mi">5</span> <span class="k">rows</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In ActiveAdmin, columns can be displayed for non-table fields. All you have to do is project them in the query. In the below example,
+length, breadth and height are not columns of boxes but have been projected in the select query.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">ActiveAdmin</span><span class="o">.</span><span class="n">register</span> <span class="no">Box</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">controller</span> <span class="k">do</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">scoped_collection</span>
+</span><span class='line'>      <span class="no">Box</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;*, dimensions -&gt;&gt; &#39;length&#39; as length, dimensions -&gt;&gt; &#39;breadth&#39; as breadth, dimensions -&gt;&gt; &#39;height&#39; as height&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">index</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">column</span> <span class="ss">:length</span><span class="p">,</span> <span class="ss">label</span><span class="p">:</span> <span class="s1">&#39;Length&#39;</span><span class="p">,</span> <span class="ss">sortable</span><span class="p">:</span> <span class="s2">&quot;dimensions-&gt;&gt;&#39;length&#39;&quot;</span>
+</span><span class='line'>    <span class="n">column</span> <span class="ss">:breadth</span><span class="p">,</span> <span class="ss">label</span><span class="p">:</span> <span class="s1">&#39;Breadth&#39;</span><span class="p">,</span> <span class="ss">sortable</span><span class="p">:</span> <span class="s2">&quot;dimensions-&gt;&gt;&#39;breadth&#39;&quot;</span>
+</span><span class='line'>    <span class="n">column</span> <span class="ss">:height</span><span class="p">,</span> <span class="ss">label</span><span class="p">:</span> <span class="s1">&#39;Height&#39;</span><span class="p">,</span> <span class="ss">sortable</span><span class="p">:</span> <span class="s2">&quot;dimensions-&gt;&gt;&#39;height&#39;&quot;</span>
+</span><span class='line'>    <span class="n">column</span> <span class="ss">:volume</span><span class="p">,</span> <span class="ss">label</span><span class="p">:</span> <span class="s1">&#39;Volume&#39;</span><span class="p">,</span> <span class="ss">sortable</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>When defining the columns to be displayed, we pass the query by which the json key would be accessed when sorting is applied.
+By default ActiveAdmin appends <em>_asc</em> and <em>_desc</em> to the table columns when sorting. Here, we pass the query overriding the default column name.</p>
+
+<p>ActiveAdmin has a method named <a href="https://github.com/activeadmin/activeadmin/blob/1c85c5654a2ce1d43d4c64d98b928ff133d46406/lib/active_admin/resource_controller/data_access.rb#L210">apply_sorting</a>
+which check if the order is valid or not and calls the ordering query.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="c1"># When sorting the breadth in descending order, the params sent to the controller are as below.</span>
+</span><span class='line'><span class="c1"># {&quot;order&quot;=&gt;&quot;dimensions-&gt;&gt;&#39;length&#39;_desc&quot;, &quot;controller&quot;=&gt;&quot;admin/boxes&quot;, &quot;action&quot;=&gt;&quot;index&quot;}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">apply_sorting</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">params</span><span class="o">[</span><span class="ss">:order</span><span class="o">]</span> <span class="o">||=</span> <span class="n">active_admin_config</span><span class="o">.</span><span class="n">sort_order</span> <span class="c1">#default order for sorting which is &#39;id_desc&#39;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">orders</span> <span class="o">=</span> <span class="o">[]</span>
+</span><span class='line'>    <span class="n">params</span><span class="o">[</span><span class="ss">:order</span><span class="o">].</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_and_&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">fragment</span><span class="o">|</span>
+</span><span class='line'>    <span class="n">order_clause</span> <span class="o">=</span> <span class="no">ActiveAdmin</span><span class="o">::</span><span class="no">OrderClause</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">fragment</span><span class="p">)</span> <span class="c1">#dimensions-&gt;&gt;&#39;breadth&#39;_desc</span>
+</span><span class='line'>    <span class="c1"># &lt;ActiveAdmin::OrderClause:0x007fad6dfe @column=&quot;dimensions-&gt;&gt;&#39;length&#39;&quot;, @field=&quot;dimensions-&gt;&gt;&#39;length&#39;&quot;, @op=nil, @order=&quot;desc&quot;&gt;</span>
+</span><span class='line'>    <span class="k">if</span> <span class="n">order_clause</span><span class="o">.</span><span class="n">valid?</span> <span class="c1">#check if field.present? and order.present?</span>
+</span><span class='line'>      <span class="n">orders</span> <span class="o">&lt;&lt;</span> <span class="n">order_clause</span><span class="o">.</span><span class="n">to_sql</span><span class="p">(</span><span class="n">active_admin_config</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">if</span> <span class="n">orders</span><span class="o">.</span><span class="n">empty?</span>
+</span><span class='line'>    <span class="n">chain</span>
+</span><span class='line'>  <span class="k">else</span>
+</span><span class='line'>    <span class="n">chain</span><span class="o">.</span><span class="n">reorder</span><span class="p">(</span><span class="n">orders</span><span class="o">.</span><span class="n">shift</span><span class="p">)</span><span class="o">.</span><span class="n">order</span><span class="p">(</span><span class="n">orders</span><span class="p">)</span>
+</span><span class='line'>    <span class="c1"># executes SELECT  *, dimensions -&gt;&gt; &#39;length&#39; as length, dimensions -&gt;&gt; &#39;breadth&#39; as breadth, dimensions -&gt;&gt; &#39;height&#39; as height FROM &quot;boxes&quot;  ORDER BY &quot;boxes&quot;.dimensions-&gt;&gt;&#39;length&#39; desc;</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Hope it was interesting.</p>
+]]></content>
+  </entry>
   
 </feed>

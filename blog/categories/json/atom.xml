@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Json | a sleepy programmer's blog]]></title>
+  <link href="http://prasadsurase.github.io/blog/categories/json/atom.xml" rel="self"/>
+  <link href="http://prasadsurase.github.io/"/>
+  <updated>2016-04-26T01:21:21+05:30</updated>
+  <id>http://prasadsurase.github.io/</id>
+  <author>
+    <name><![CDATA[Prasad Surase]]></name>
+    <email><![CDATA[prasadsurase@gmail.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Sorting for Json Keys as Column in Active Admin]]></title>
+    <link href="http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns/"/>
+    <updated>2016-04-25T23:01:50+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns</id>
+    <content type="html"><![CDATA[<p>Recently, I had a requirement wherein I need to have sorting on the keys of a json column data. We were using postgres 9.4 and the
+schema of the json data was static for all the records. The keys needed to be displayed as columns with sorting enabled against them.
+Below is the way I implemented it. Also, on digging into ActiveAdmin, I learned some interesting implementation details of the library.</p>
+
+<p>Lets take an example. We have a model named Box which stores (length, width &amp; height) as json in a column named dimensions.</p>
+
+<pre><code class="sql">\d boxes;
+
+Table "public.boxes"
+Column   |            Type             |                     Modifiers                      
+------------+-----------------------------+----------------------------------------------------
+id         | integer                     | not null default nextval('boxes_id_seq'::regclass)
+user_id    | integer                     | 
+dimensions | json                        | 
+volume     | integer                     | 
+created_at | timestamp without time zone | not null
+updated_at | timestamp without time zone | not null
+Indexes:
+"boxes_pkey" PRIMARY KEY, btree (id)
+
+
+# select * from boxes limit 5;
+  id | user_id |             dimensions              | volume |         created_at         |         updated_at         
+ ----+---------+-------------------------------------+--------+----------------------------+----------------------------
+   1 |       3 | {"length":4,"breadth":7,"height":3} |     84 | 2016-04-19 18:24:54.281761 | 2016-04-19 18:30:21.885756
+   2 |       3 | {"length":3,"breadth":3,"height":8} |     72 | 2016-04-19 18:24:54.28487  | 2016-04-19 18:30:21.904715
+   3 |       2 | {"length":1,"breadth":4,"height":3} |     12 | 2016-04-19 18:24:54.287235 | 2016-04-19 18:30:21.911726
+   4 |       4 | {"length":0,"breadth":2,"height":4} |      0 | 2016-04-19 18:24:54.289777 | 2016-04-19 18:30:21.917753
+   5 |       4 | {"length":7,"breadth":4,"height":0} |      0 | 2016-04-19 18:24:54.292116 | 2016-04-19 18:30:21.924538
+(5 rows)
+</code></pre>
+
+<p>In ActiveAdmin, columns can be displayed for non-table fields. All you have to do is project them in the query. In the below example,
+length, breadth and height are not columns of boxes but have been projected in the select query.</p>
+
+<pre><code class="ruby">ActiveAdmin.register Box do
+  controller do
+    def scoped_collection
+      Box.select("*, dimensions -&gt;&gt; 'length' as length, dimensions -&gt;&gt; 'breadth' as breadth, dimensions -&gt;&gt; 'height' as height")
+    end
+  end
+
+  index do
+    column :length, label: 'Length', sortable: "dimensions-&gt;&gt;'length'"
+    column :breadth, label: 'Breadth', sortable: "dimensions-&gt;&gt;'breadth'"
+    column :height, label: 'Height', sortable: "dimensions-&gt;&gt;'height'"
+    column :volume, label: 'Volume', sortable: true
+  end
+end
+</code></pre>
+
+<p>When defining the columns to be displayed, we pass the query by which the json key would be accessed when sorting is applied.
+By default ActiveAdmin appends <em>_asc</em> and <em>_desc</em> to the table columns when sorting. Here, we pass the query overriding the default column name.</p>
+
+<p>ActiveAdmin has a method named <a href="https://github.com/activeadmin/activeadmin/blob/1c85c5654a2ce1d43d4c64d98b928ff133d46406/lib/active_admin/resource_controller/data_access.rb#L210">apply_sorting</a>
+which check if the order is valid or not and calls the ordering query.</p>
+
+<pre><code class="ruby"># When sorting the breadth in descending order, the params sent to the controller are as below.
+# {"order"=&gt;"dimensions-&gt;&gt;'length'_desc", "controller"=&gt;"admin/boxes", "action"=&gt;"index"}
+
+def apply_sorting(chain)
+  params[:order] ||= active_admin_config.sort_order #default order for sorting which is 'id_desc'
+
+  orders = []
+    params[:order].split('_and_').each do |fragment|
+    order_clause = ActiveAdmin::OrderClause.new(fragment) #dimensions-&gt;&gt;'breadth'_desc
+    # &lt;ActiveAdmin::OrderClause:0x007fad6dfe @column="dimensions-&gt;&gt;'length'", @field="dimensions-&gt;&gt;'length'", @op=nil, @order="desc"&gt;
+    if order_clause.valid? #check if field.present? and order.present?
+      orders &lt;&lt; order_clause.to_sql(active_admin_config)
+    end
+  end
+
+  if orders.empty?
+    chain
+  else
+    chain.reorder(orders.shift).order(orders) 
+    # executes SELECT  *, dimensions -&gt;&gt; 'length' as length, dimensions -&gt;&gt; 'breadth' as breadth, dimensions -&gt;&gt; 'height' as height FROM "boxes"  ORDER BY "boxes".dimensions-&gt;&gt;'length' desc;
+  end
+end
+</code></pre>
+
+<p>Hope it was interesting.</p>
+]]></content>
+  </entry>
+  
+</feed>
