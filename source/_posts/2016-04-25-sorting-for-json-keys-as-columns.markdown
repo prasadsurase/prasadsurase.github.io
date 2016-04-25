@@ -93,4 +93,4 @@ def apply_sorting(chain)
 end
 ```
 
-Hope it was interesting.
+Working source code can be found [here](https://github.com/prasadsurase/active_admin_with_json_field). Hope it was interesting.
