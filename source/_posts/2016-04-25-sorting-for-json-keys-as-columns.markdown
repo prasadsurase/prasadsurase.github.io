@@ -4,6 +4,7 @@ title: "Sorting for json keys as column in active admin"
 date: 2016-04-25 23:01:50 +0530
 categories: [activeadmin, json, postgresql]
 external-url: "http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns/"
+url: "http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns/"
 published: true
 comments: true
 ---
