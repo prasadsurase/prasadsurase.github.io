@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Json | a sleepy programmer's blog]]></title>
   <link href="http://prasadsurase.github.io/blog/categories/json/atom.xml" rel="self"/>
   <link href="http://prasadsurase.github.io/"/>
-  <updated>2016-05-01T22:28:24+05:30</updated>
+  <updated>2016-05-03T00:03:03+05:30</updated>
   <id>http://prasadsurase.github.io/</id>
   <author>
     <name><![CDATA[Prasad Surase]]></name>
@@ -15,10 +15,152 @@
   
   <entry>
     <title type="html"><![CDATA[Filtering for Json Keys as Columns in Active Admin]]></title>
-    <link href="http://prasadsurase.github.io/blog/2016/04/27/filtering-for-json-keys-as-columns/"/>
-    <updated>2016-04-27T23:01:07+05:30</updated>
-    <id>http://prasadsurase.github.io/blog/2016/04/27/filtering-for-json-keys-as-columns</id>
-    <content type="html"><![CDATA[
+    <link href="http://prasadsurase.github.io/blog/2016/05/03/filtering-for-json-keys-as-columns/"/>
+    <updated>2016-05-03T23:01:07+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/05/03/filtering-for-json-keys-as-columns</id>
+    <content type="html"><![CDATA[<p>After implementing sorting on keys of a json column data, I need to add filtering too. We are using
+ActiveAdmin(1.0.0-pre1) with postgres 9.4. You can check my
+<a href="http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns/">previous</a> post regarding sorting.</p>
+
+<p>For sake of continuity, lets take the same example as in the previous post. We have a model named Box which
+stores (length, width &amp; height) as json in a column named dimensions.</p>
+
+<pre><code class="sql">\d boxes;
+
+Table "public.boxes"
+Column   |            Type             |                     Modifiers                      
+------------+-----------------------------+----------------------------------------------------
+id         | integer                     | not null default nextval('boxes_id_seq'::regclass)
+user_id    | integer                     | 
+dimensions | json                        | 
+volume     | integer                     | 
+created_at | timestamp without time zone | not null
+updated_at | timestamp without time zone | not null
+Indexes:
+"boxes_pkey" PRIMARY KEY, btree (id)
+
+
+# select * from boxes limit 5;
+  id | user_id |             dimensions              | volume |         created_at         |         updated_at         
+ ----+---------+-------------------------------------+--------+----------------------------+----------------------------
+   1 |       3 | {"length":4,"breadth":7,"height":3} |     84 | 2016-04-19 18:24:54.281761 | 2016-04-19 18:30:21.885756
+   2 |       3 | {"length":3,"breadth":3,"height":8} |     72 | 2016-04-19 18:24:54.28487  | 2016-04-19 18:30:21.904715
+   3 |       2 | {"length":1,"breadth":4,"height":3} |     12 | 2016-04-19 18:24:54.287235 | 2016-04-19 18:30:21.911726
+   4 |       4 | {"length":0,"breadth":2,"height":4} |      0 | 2016-04-19 18:24:54.289777 | 2016-04-19 18:30:21.917753
+   5 |       4 | {"length":7,"breadth":4,"height":0} |      0 | 2016-04-19 18:24:54.292116 | 2016-04-19 18:30:21.924538
+(5 rows)
+</code></pre>
+
+<p>In ActiveAdmin, the filters can be displayed as below</p>
+
+<pre><code class="ruby">ActiveAdmin.register Box do
+  filter :length, as: :numeric, label: 'Length'
+  filter :breadth, as: :numeric, label: 'Breadth'
+  filter :height, as: :numeric, label: 'Height'
+  filter :volume, as: :numeric, label: 'Volume'
+
+  controller do
+    def scoped_collection
+      Box.select("*, dimensions -&gt;&gt; 'length' as length, dimensions -&gt;&gt; 'breadth' as breadth, dimensions -&gt;&gt; 'height' as height")
+    end
+  end
+
+  index do
+    column :length, label: 'Length', sortable: "dimensions-&gt;&gt;'length'"
+    column :breadth, label: 'Breadth', sortable: "dimensions-&gt;&gt;'breadth'"
+    column :height, label: 'Height', sortable: "dimensions-&gt;&gt;'height'"
+    column :volume, label: 'Volume', sortable: true
+  end
+end
+</code></pre>
+
+<p>Since some of the fields are not associated with the table, we need need to define custom ransackers for them.
+ActiveAdmin uses ransack gem for implementing searching.</p>
+
+<pre><code class="ruby">class Box &lt; ActiveRecord::Base
+  ransacker :length do |parent|
+    # '-&gt;&gt;' is a part of the syntax for accessing the json keys, 'dimensions' the column name and 
+    # 'length' is the actual key on which the search is to be implemented.
+    Arel::Nodes::InfixOperation.new('-&gt;&gt;', parent.table[:dimensions], Arel::Nodes.build_quoted('length'))
+  end
+
+  ransacker :breadth do |parent|
+    Arel::Nodes::InfixOperation.new('-&gt;&gt;', parent.table[:dimensions], Arel::Nodes.build_quoted('breadth'))
+  end
+
+  ransacker :height do |parent|
+    Arel::Nodes::InfixOperation.new('-&gt;&gt;', parent.table[:dimensions], Arel::Nodes.build_quoted('height'))
+  end
+
+
+  # The below ransackers do not work. Also, we need to declare three ransackers :length_equals, :length_greater_than &amp; 
+  # :length_less_than for each field. Dont know the reason but am looking into it.
+
+  ransacker :length_greater_than, formatter: -&gt; (value){
+    data = where("dimensions -&gt;&gt; 'length' &gt; '#{value}'").pluck :id
+    data = data.present? ? data : nil
+  } do |parent|
+    parent.table[:id]
+  end
+end
+</code></pre>
+
+<p>This still won&rsquo;t work. The filters are displayed weirdly(dropdown on top and search input field at the bottom) rather in
+the expected layout(dropdown on left and search input field on the right). This is because ActiveAdmin adds a class
+<a href="https://github.com/activeadmin/activeadmin/blob/master/lib/active_admin/inputs/filters/base/search_method_select.rb#L34"><em>select_and_search</em></a> which decides if a filter field is searchable or not. This class is responsible for the proper
+layout and working of filters. The below code is referenced from ActiveAdmin. It decides whether the class is to be
+added or not when the filter is initialized.</p>
+
+<pre><code class="ruby">module ActiveAdmin
+  module Inputs
+    module Filters
+      module Base
+        module SearchMethodSelect
+          def wrapper_html_options
+            opts = super
+              (opts[:class] ||= '') &lt;&lt; ' select_and_search' unless seems_searchable?
+            opts
+          end
+        end
+      end
+    end
+  end
+end
+
+module ActiveAdmin                                                                                                                                        
+  module Filters
+    module FormtasticAddons
+      def seems_searchable?
+        # ransacker? checks if any custom ransackers are defined. 
+        has_predicate? || ransacker? || scope?
+      end
+    end
+  end
+end
+</code></pre>
+
+<p>So, we remove the check for <em>ransacker?</em> by adding a patch in the initializers.</p>
+
+<pre><code class="ruby"># config/initializers/hack_for_filter.rb
+
+module ActiveAdmin                                                                                                                                        
+  module Filters
+    module FormtasticAddons
+      def seems_searchable?
+        has_predicate? || scope?
+      end
+    end
+  end
+end
+</code></pre>
+
+<p>Now, the filters will be displayed properly and would send the selected option(Greater than, Equals or Less than) with
+the specified value to the ransackers.</p>
+
+<p>I am not inclined towards overriding the library methods but haven&rsquo;t found any other solution for the same. So, for now,
+this it the hack that works for me.</p>
+
+<p>Working source code can be found <a href="https://github.com/prasadsurase/active_admin_with_json_field">here</a>. Hope it was interesting.</p>
 ]]></content>
   </entry>
   
@@ -27,8 +169,8 @@
     <link href="http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns/"/>
     <updated>2016-04-25T23:01:50+05:30</updated>
     <id>http://prasadsurase.github.io/blog/2016/04/25/sorting-for-json-keys-as-columns</id>
-    <content type="html"><![CDATA[<p>Recently, I had a requirement wherein I need to have sorting on the keys of a json column data. We were using postgres 9.4 and the
-schema of the json data was static for all the records. The keys needed to be displayed as columns with sorting enabled against them.
+    <content type="html"><![CDATA[<p>Recently, I had a requirement wherein I need to have sorting on the keys of a json column data. We are using postgres 9.4 and the
+schema of the json data is static for all the records. The keys needed to be displayed as columns with sorting enabled against them.
 Below is the way I implemented it. Also, on digging into ActiveAdmin, I learned some interesting implementation details of the library.</p>
 
 <p>Lets take an example. We have a model named Box which stores (length, width &amp; height) as json in a column named dimensions.</p>
@@ -36,7 +178,7 @@ Below is the way I implemented it. Also, on digging into ActiveAdmin, I learned 
 <pre><code class="sql">\d boxes;
 
 Table "public.boxes"
-Column   |            Type             |                     Modifiers                      
+  Column   |            Type             |                     Modifiers                      
 ------------+-----------------------------+----------------------------------------------------
 id         | integer                     | not null default nextval('boxes_id_seq'::regclass)
 user_id    | integer                     | 
@@ -93,7 +235,8 @@ def apply_sorting(chain)
   orders = []
     params[:order].split('_and_').each do |fragment|
     order_clause = ActiveAdmin::OrderClause.new(fragment) #dimensions-&gt;&gt;'breadth'_desc
-    # &lt;ActiveAdmin::OrderClause:0x007fad6dfe @column="dimensions-&gt;&gt;'length'", @field="dimensions-&gt;&gt;'length'", @op=nil, @order="desc"&gt;
+    # &lt;ActiveAdmin::OrderClause:0x007fad6dfe @column="dimensions-&gt;&gt;'length'", @field="dimensions-&gt;&gt;'length'", 
+    # @op=nil, @order="desc"&gt;
     if order_clause.valid? #check if field.present? and order.present?
       orders &lt;&lt; order_clause.to_sql(active_admin_config)
     end
@@ -103,7 +246,80 @@ def apply_sorting(chain)
     chain
   else
     chain.reorder(orders.shift).order(orders) 
-    # executes SELECT  *, dimensions -&gt;&gt; 'length' as length, dimensions -&gt;&gt; 'breadth' as breadth, dimensions -&gt;&gt; 'height' as height FROM "boxes"  ORDER BY "boxes".dimensions-&gt;&gt;'length' desc;
+    # executes SELECT  *, dimensions -&gt;&gt; 'length' as length, dimensions -&gt;&gt; 'breadth' as breadth, 
+    # dimensions -&gt;&gt; 'height' as height 
+    # FROM "boxes"  ORDER BY "boxes".dimensions-&gt;&gt;'length' desc;
+  end
+end
+</code></pre>
+
+<p>The last change that we need is to rewrite the
+<a href="https://github.com/activeadmin/activeadmin/blob/master/lib/active_admin/order_clause.rb">ActiveAdmin::OrderClause</a>. The OrderClause parses the field and order
+string(say, volume_desc or dimensions->>&lsquo;length&rsquo;_desc) and splits it into the field name, operation and the order thats to be applied.</p>
+
+<pre><code class="ruby"># Original code
+module ActiveAdmin
+  class OrderClause
+    attr_reader :field, :order
+
+    def initialize(clause)
+      clause =~ /^([\w\_\.]+)(-&gt;'\w+')?_(desc|asc)$/
+      @column = $1
+      @op = $2
+      @order = $3
+
+      @field = [@column, @op].compact.join
+    end
+
+    def valid?
+      @field.present? &amp;&amp; @order.present?
+    end
+
+    def to_sql(active_admin_config)
+      table = active_admin_config.resource_column_names.include?(@column) ? active_admin_config.resource_table_name : nil
+      table_column = (@column =~ /\./) ? @column : [table, active_admin_config.resource_quoted_column_name(@column)].compact.join(".")
+      [table_column, @op, ' ', @order].compact.join
+    end
+  end
+end
+
+# Updated code in config/initializers/hacked_order_clause.rb
+module ActiveAdmin
+  class OrderClause
+    attr_reader :field, :order
+
+    def initialize(clause)
+      clause =~ /^([\w\_\.]+)(-&gt;'\w+')?_(desc|asc)$|^([\w\_\.]+-&gt;&gt;'[\w\_]+')(-&gt;'\w+')?_(desc|asc)$/
+      @column = $1 || $4
+      @op = $2 || $5
+      @order = $3 || $6
+
+      @field = [@column, @op].compact.join
+    end
+
+    def valid?
+      @field.present? &amp;&amp; @order.present?
+    end
+
+    def to_sql(active_admin_config)
+      table = column_in_table?(active_admin_config.resource_column_names, @column) ? active_admin_config.resource_table_name : nil
+      table_column = (@column =~ /\./) ? @column : [ 
+        table, json_column?(@column) ? @column : active_admin_config.resource_quoted_column_name(@column) 
+      ].compact.join(".")
+      [table_column, @op, ' ', @order].compact.join
+    end
+
+    private
+
+    def json_column?(column)
+      column.include?('-&gt;&gt;')
+    end
+
+    def 
+      column_in_table?(names, column)
+      column = json_column?(column) ? column.split('-&gt;&gt;')[0].strip : column
+      names.include?(column)
+    end
   end
 end
 </code></pre>
