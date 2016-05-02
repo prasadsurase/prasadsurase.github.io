@@ -9,8 +9,8 @@ published: true
 comments: true
 ---
 
-Recently, I had a requirement wherein I need to have sorting on the keys of a json column data. We were using postgres 9.4 and the 
-schema of the json data was static for all the records. The keys needed to be displayed as columns with sorting enabled against them. 
+Recently, I had a requirement wherein I need to have sorting on the keys of a json column data. We are using postgres 9.4 and the 
+schema of the json data is static for all the records. The keys needed to be displayed as columns with sorting enabled against them. 
 Below is the way I implemented it. Also, on digging into ActiveAdmin, I learned some interesting implementation details of the library.
 
 Lets take an example. We have a model named Box which stores (length, width & height) as json in a column named dimensions.
@@ -19,7 +19,7 @@ Lets take an example. We have a model named Box which stores (length, width & he
 \d boxes;
 
 Table "public.boxes"
-Column   |            Type             |                     Modifiers                      
+  Column   |            Type             |                     Modifiers                      
 ------------+-----------------------------+----------------------------------------------------
 id         | integer                     | not null default nextval('boxes_id_seq'::regclass)
 user_id    | integer                     | 
@@ -79,7 +79,8 @@ def apply_sorting(chain)
   orders = []
     params[:order].split('_and_').each do |fragment|
     order_clause = ActiveAdmin::OrderClause.new(fragment) #dimensions->>'breadth'_desc
-    # <ActiveAdmin::OrderClause:0x007fad6dfe @column="dimensions->>'length'", @field="dimensions->>'length'", @op=nil, @order="desc">
+    # <ActiveAdmin::OrderClause:0x007fad6dfe @column="dimensions->>'length'", @field="dimensions->>'length'", 
+    # @op=nil, @order="desc">
     if order_clause.valid? #check if field.present? and order.present?
       orders << order_clause.to_sql(active_admin_config)
     end
@@ -89,7 +90,81 @@ def apply_sorting(chain)
     chain
   else
     chain.reorder(orders.shift).order(orders) 
-    # executes SELECT  *, dimensions ->> 'length' as length, dimensions ->> 'breadth' as breadth, dimensions ->> 'height' as height FROM "boxes"  ORDER BY "boxes".dimensions->>'length' desc;
+    # executes SELECT  *, dimensions ->> 'length' as length, dimensions ->> 'breadth' as breadth, 
+    # dimensions ->> 'height' as height 
+    # FROM "boxes"  ORDER BY "boxes".dimensions->>'length' desc;
+  end
+end
+```
+
+The last change that we need is to rewrite the 
+[ActiveAdmin::OrderClause](https://github.com/activeadmin/activeadmin/blob/master/lib/active_admin/order_clause.rb). The OrderClause parses the field and order 
+string(say, volume_desc or dimensions->>'length'_desc) and splits it into the field name, operation and the order thats to be applied.
+
+```ruby
+# Original code
+module ActiveAdmin
+  class OrderClause
+    attr_reader :field, :order
+
+    def initialize(clause)
+      clause =~ /^([\w\_\.]+)(->'\w+')?_(desc|asc)$/
+      @column = $1
+      @op = $2
+      @order = $3
+
+      @field = [@column, @op].compact.join
+    end
+
+    def valid?
+      @field.present? && @order.present?
+    end
+
+    def to_sql(active_admin_config)
+      table = active_admin_config.resource_column_names.include?(@column) ? active_admin_config.resource_table_name : nil
+      table_column = (@column =~ /\./) ? @column : [table, active_admin_config.resource_quoted_column_name(@column)].compact.join(".")
+      [table_column, @op, ' ', @order].compact.join
+    end
+  end
+end
+
+# Updated code in config/initializers/hacked_order_clause.rb
+module ActiveAdmin
+  class OrderClause
+    attr_reader :field, :order
+    
+    def initialize(clause)
+      clause =~ /^([\w\_\.]+)(->'\w+')?_(desc|asc)$|^([\w\_\.]+->>'[\w\_]+')(->'\w+')?_(desc|asc)$/
+      @column = $1 || $4
+      @op = $2 || $5
+      @order = $3 || $6
+
+      @field = [@column, @op].compact.join
+    end
+
+    def valid?
+      @field.present? && @order.present?
+    end
+
+    def to_sql(active_admin_config)
+      table = column_in_table?(active_admin_config.resource_column_names, @column) ? active_admin_config.resource_table_name : nil
+      table_column = (@column =~ /\./) ? @column : [ 
+        table, json_column?(@column) ? @column : active_admin_config.resource_quoted_column_name(@column) 
+      ].compact.join(".")
+      [table_column, @op, ' ', @order].compact.join
+    end
+
+    private
+
+    def json_column?(column)
+      column.include?('->>')
+    end
+
+    def 
+      column_in_table?(names, column)
+      column = json_column?(column) ? column.split('->>')[0].strip : column
+      names.include?(column)
+    end
   end
 end
 ```
