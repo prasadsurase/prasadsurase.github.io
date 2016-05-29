@@ -8,7 +8,8 @@ categories: [reactjs, rails]
 
 Since last couple of days, I have been experimenting with ReactJS. I followed the official 
 [tutorial](https://facebook.github.io/react/docs/tutorial.html), [Thinking in React](https://facebook.github.io/react/docs/thinking-in-react.html) 
-and some other blogs. This post is a summary of what I learned. I will try to keep is as simple as possible.
+and some other blogs. This post is a summary of what I learned. This is by no means a tutorial but some points that will help you 
+get started. I will try to keep is as simple as possible.
 
 **What is React?** ReactJS is a JavaScript library to manage and render Views(V in MVC). The views are rendered by React
 Components.
@@ -51,51 +52,49 @@ Lets read some simple code. A simple 'Hello React' program.
 We have a HTML page with some JS code defined inside the _script_ tag. The JS code has some HTML too. This HTML inside JS is 
 called [JSX](https://jsx.github.io). [Babel](https://babeljs.io/) is a library to parse JSX. React uses JSX to render the HTML.
 
+**Component:** A component is an entity that is supposed to do only one thing. Ideally, it should follow **_Single Responsibility Principle_**. The 
+main task of a component is to render data(props/state). Component doesn't inherit other Component but data(state/props) is passed 
+form one Component(parent) to another Component(child).
+
+**state:** A Component's data that it has not inherited from the parent Component is called state.
+
+**props:** Data that a Component inherits from the parent/Ancestor Component is called props(properties). 
+
+React follows **unidirectional data flow**. What it means is that a Component(parent) passes data(state/props) to another 
+Component(child). When the data of the parent is altered, the child component automatically update itself.
+
+
 Coming to the JS code, we have 2 entities named **ReactDOM** and **HelloWorld**. In React, these are called **Component**. In the 
-above code, the **ReactDOM** is calling the **HelloWorld** component passing some data(ie. name="React")
-
-Here, the parent component is **ReactDOM** and the child component is **HelloWorld**. **message** is the **state** of HelloWorld 
-whereas **name** is its **props**.
-
-**What is a Component?**
-A component is an entity that is supposed to do only one thing. Ideally, it should follow _Single Responsibility Principle_. The 
-main task of a component is to render data(props/state). Component don't inherit other Component but data(state/props) is passed 
-form one Component(Parent) to another Component(Child).
-
-**What is state?**
-A Component's data that it has not inherited from the Parent Component is called state.
-
-**What is props?**
-Data that a Component inherits from the Parent/Ancestor Component is called props(properties). 
-
-React follows **unidirectional data flow**. What it means is that a Component(Parent) passes data(state/props) to another 
-Component(Child). When the data of the Parent is altered, the Child component automatically update itself.
+above code, the **ReactDOM** is calling the **HelloWorld** component passing some **data**(ie. name="React"). Hence, the parent 
+component is **ReactDOM** and the child component is **HelloWorld**. **message** is the **state** of HelloWorld whereas **name** 
+is its **props**.
 
 **Some important points:**
 
-* Component _must_ implement the **render** function. Component converts data to JSX.
-* When **state** is passed down to child components, it becomes **props** for child components. ie. state of Parent Component will 
-  always be props of Child Component.
+* Component _must_ implement the **render** function.
+* When **state** is passed down to child components, it becomes **props** for child components. ie. state of parent Component will 
+  always be props of child Component.
 * A component can alter(update/delete) it's state since it belongs to the component. **_state is mutable_**.
 * A component should not alter(update/delete) it's props since they don't belong to the component. **_props is immutable_**.
-* If props are to be altered, then they should be altered in the component where they are declared. When mounting the Child 
+* If props are to be altered, then they should be altered in the component where they are declared. When mounting the child 
   Component, the callbacks that need to be called to update/delete the props should be passed too.
-* React will update all the children using the props once the Parent component's data(props) has been updated.
+* React will update all the children using the props once the parent component's data(props) has been updated.
 * When child component receives data(props) from the parent, do not assign it to child component's state and then use this state
   to render html. Use the props directly in the render function. The state is set when the component is mounted for the first 
   time. you will have to explicitly unmount and remount the child component to rerender the update state data.
-* Child Component can call Parent Component's only those methods that have been passed on to it.
+* child Component can call parent Component's only those methods that have been passed on to it.
 * If a state is refered in multiple components of different types, the state should be added to the most recent ancestor of the 
   components.
 
-Lets make sure that these points are right. We will create a simple example wherein a User can enter _message_(eg. 'Hello') and a 
-_name_(eg. 'Prasad'). The page should display the _message_ and _name_.
+There are couple of points that you should always remember. Rather than listing them all out at once, lets create an example 
+step-by-step and see what we find out. 
 
-There are couple of points that yyou should always remember. Rather than listing them all out at once, lets create an example 
-step-by-step and see what we find out.
+We will create a simple example wherein a User can enter _message_(eg. 'Hello') and a _name_(eg. 'Prasad'). The page should 
+display the _message_ and _name_.
 
-For sake of keeping this post short and simple, I won't be adding the entire HTML but only the necessary(updated) code. Also, the code 
-sample would contain only the changes for the components.
+For sake of keeping this post short and simple, I won't be adding the entire HTML but only the necessary(updated) code. Also, the 
+code sample would contain only the changes for the components.
+
 
 ```javascript
 var Greet = React.createClass({});
@@ -105,7 +104,6 @@ ReactDOM.render(<Greet />, document.getElementById('container'));
 
 The above code sample will fail because every Component created using _React.createClass_ must implement the _render_ function. 
 The detailed error can be viewed in the browser's console.
-__
 
 ```javascript
 var Greet = React.createClass({
@@ -141,7 +139,7 @@ var User = React.createClass({
   }
 });
 ```
-Here, we created a new component named *User* and passed the Greet's message to the User. Since, _message_ is passed to User, 
+Here, we created a new component named *User* and passed the Greet's *message* to the User. Since, _message_ is passed to User, 
 it's User's props.
 
 ```javascript
