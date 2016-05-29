@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Reactjs | a sleepy programmer's blog]]></title>
+  <link href="http://prasadsurase.github.io/blog/categories/reactjs/atom.xml" rel="self"/>
+  <link href="http://prasadsurase.github.io/"/>
+  <updated>2016-05-29T16:39:55+05:30</updated>
+  <id>http://prasadsurase.github.io/</id>
+  <author>
+    <name><![CDATA[Prasad Surase]]></name>
+    <email><![CDATA[prasadsurase@gmail.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Basic Concepts in React]]></title>
+    <link href="http://prasadsurase.github.io/blog/2016/05/29/basic-concepts-in-react/"/>
+    <updated>2016-05-29T16:30:39+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/05/29/basic-concepts-in-react</id>
+    <content type="html"><![CDATA[<p>Since last couple of days, I have been experimenting with ReactJS. I followed the official
+<a href="https://facebook.github.io/react/docs/tutorial.html">Tutorial</a>, <a href="https://facebook.github.io/react/docs/thinking-in-react.html">Thinking in React</a>
+and some other blogs. This post is a summary of what I learned. I will try to keep is as simple as possible.</p>
+
+<p><strong>What is React</strong>? React is a JavaScript library to manage and render Views(V in MVC). The views are rendered by React
+<strong>Component</strong>s.</p>
+
+<p>Lets read some simple code. A simple &lsquo;Hello React&rsquo; program.</p>
+
+<pre><code class="html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;meta charset="UTF-8" /&gt;
+    &lt;title&gt;Hello React!&lt;/title&gt;
+    &lt;script src="build/react.js"&gt;&lt;/script&gt;
+    &lt;script src="build/react-dom.js"&gt;&lt;/script&gt;
+    &lt;script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"&gt;&lt;/script&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div id="example"&gt;&lt;/div&gt;
+    &lt;script type="text/babel"&gt;
+      var HelloWorld = React.createClass({
+        getInitialState: function(){
+          return {message: 'Hello'}
+        },
+
+        render: function(){
+          return (
+            &lt;h3&gt;{this.state.message} {this.props.name}&lt;/h3&gt;
+          );
+        }
+      });
+
+      ReactDOM.render(
+        &lt;HelloWorld name="React" /&gt;,
+        document.getElementById('container')
+      );
+    &lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+
+<p>In the above code sample, we have a HTML page with some JS code defined inside the <em>script</em> tag. The JS code has some HTML too. This HTML inside JS is
+called <a href="https://jsx.github.io">JSX</a>. <a href="https://babeljs.io/">Babel</a> is a library to parse JSX. React uses JSX to render the HTML.</p>
+
+<h2>Some basic terminologies:</h2>
+
+<p><strong>Component</strong>: A component is an entity that is supposed to do only one thing. Ideally, it should follow <strong><em>Single Responsibility
+Principle</em></strong>. The main task of a component is to <strong>render data</strong>(props/<em>state</em>). Component doesn&rsquo;t inherit other Component but
+data(<em>state</em>/props) is passed form one Component(parent) to another Component(child).</p>
+
+<p><strong>state</strong>: A Component&rsquo;s data that it has not inherited from the parent Component is called state.</p>
+
+<p><strong>props</strong>: Data that a Component inherits from the parent/Ancestor Component is called props(properties).</p>
+
+<p>React follows <strong><em>unidirectional data flow</em></strong>. What it means is that a Component(parent) passes data(state/props) to another
+Component(child). When the data of the parent is altered, the child component automatically update itself.</p>
+
+<p>In the javascript of the above code sample, we have 2 entities named <strong>ReactDOM</strong> and <strong>HelloWorld</strong>. In React, these are called
+<strong>Component</strong>. In the above code, the <strong>ReactDOM</strong> is calling the <strong>HelloWorld</strong> component passing some data(ie. name=&ldquo;React&rdquo;).
+Hence, the parent component is <strong>ReactDOM</strong> and the child component is <strong>HelloWorld</strong>. <strong>message</strong> is the <strong>state</strong> of
+<strong>HelloWorld</strong> whereas <strong>name</strong> is its <strong>props</strong>.</p>
+
+<h2>Some important points:</h2>
+
+<ul>
+<li>Component <em>must</em> implement the <em>render</em> function.</li>
+<li>When <em>state</em> is passed down to child components, it becomes <em>props</em> for child components. ie. <em>state</em> of parent Component will
+always be <em>props</em> of child Component.</li>
+<li>A component can alter(update/delete) it&rsquo;s <em>state</em> since it belongs to the component. <em>state is mutable</em>.</li>
+<li>A component should not alter(update/delete) it&rsquo;s <em>props</em> since they don&rsquo;t belong to the component. <em>props is immutable</em>.</li>
+<li>If <em>props</em> are to be altered, then they should be altered in the component where they are declared. When mounting the child
+Component, the callbacks that need to be called to update/delete the <em>props</em> should be passed too.</li>
+<li>React will update all the child components using the <em>props</em> once the parent component&rsquo;s data(<em>state</em>) has been updated.</li>
+<li>When child component receives data(props) from the parent, do not assign it to child component&rsquo;s <em>state</em> and then use this state
+to render html. Use the <em>props</em> directly in the render function. The <em>state</em> is set when the component is mounted for the first
+time. you will have to explicitly unmount and remount the child component to rerender the update <em>state</em> data.</li>
+<li>child Component can call parent Component&rsquo;s only those methods that have been passed on to it.</li>
+<li>If a <em>state</em> is refered in multiple components of different types, the <em>state</em> should be added to the most recent ancestor of the
+components.</li>
+</ul>
+
+
+<p>We will create a simple example wherein a User can enter <em>message</em>(eg. &lsquo;Hello&rsquo;) and a <em>name</em>(eg. &lsquo;Prasad&rsquo;). The page should
+display the <em>message</em> and <em>name</em>.</p>
+
+<p>For sake of keeping this post short and simple, I won&rsquo;t be adding the entire HTML but only the necessary(updated) code.
+Also, 1) The code sample would contain only the changes for the components. 2) We have the code sample followed by the explanation.</p>
+
+<pre><code class="javascript">var Greet = React.createClass({});
+
+ReactDOM.render(&lt;Greet /&gt;, document.getElementById('container'));
+</code></pre>
+
+<p>The above code sample will fail because every Component created using <em>React.createClass</em> must implement the <em>render</em> function.
+The detailed error can be viewed in the browser&rsquo;s console.</p>
+
+<pre><code class="javascript">var Greet = React.createClass({
+  getInitialState: function(){
+    return { message: 'Hello' };
+  },
+
+  render: function(){
+    return (
+      &lt;h3&gt;{this.state.message}&lt;/h3&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>We updated the Greet component to set some initial value for <em>message</em> and defined the <em>render</em> function to display the
+<em>message</em>. Since, <em>message</em> has been defined in the same component, hence, <em>message</em> is <em>Greet&rsquo;s</em> <em>state</em>.</p>
+
+<pre><code class="javascript">var Greet = React.createClass({
+  render: function(){
+    return (
+      &lt;User message={this.state.message} /&gt;
+    );
+  }
+});
+
+var User = React.createClass({
+  render: function(){
+    return (
+      &lt;h3&gt;{this.props.message}&lt;/h3&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>Here, we created a new component named <em>User</em> and passed the Greet&rsquo;s <em>message</em> to the User. Since, <em>message</em> is passed to User,
+it&rsquo;s User&rsquo;s <em>props</em>.</p>
+
+<pre><code class="javascript">var User = React.createClass({
+  getInitialState: function(){
+    return { name: 'Prasad' };
+  },
+
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' name='message' placeholder='Enter message' value={this.props.message}/&gt;
+        &lt;input type='text' name='name' placeholder='Enter Name' value={this.state.name}/&gt;
+        &lt;h3&gt;{this.props.message} {this.state.name}&lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>Here, we added a <em>state</em> named <em>name</em> to User. We are rendering the <em>props</em> <em>message</em> and <em>state</em> <em>name</em> in the User&rsquo;s <em>render</em> function
+along with 2 input fields wherein User can enter the custom <em>message</em> and <em>name</em> that he/she wants to be displayed.</p>
+
+<pre><code class="javascript">var User = React.createClass({
+  handleNameChange: function(event){
+    this.setState({ name: event.target.value });
+  },
+
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' placeholder='Enter message' value={this.props.message} /&gt;
+        &lt;input type='text' placeholder='Enter Name' value={this.state.name} onChange={this.handleNameChange}/&gt;
+        &lt;h3&gt;{this.props.message} {this.state.name}&lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>Here, The <em>handleNameChange</em> function receives the event and retrieves the updated value from the target. React provides us a
+function named <em>setState</em> using which we have updated the <em>state</em> <em>name</em>. If we update the <em>state</em> <em>name</em> without using the <em>setState</em>
+function, the updated name is not displayed. This is because the <em>setState</em> informs React that an <em>state</em> has been updated and that
+the DOM needs to be updated.</p>
+
+<pre><code class="javascript">var Greet = React.createClass({
+  updateMessage: function(value){
+    this.setState({ message: value });
+  },
+
+  render: function(){
+    return (
+      &lt;User message={this.state.message} handleMessageChange={this.updateMessage}/&gt;
+    );
+  }
+});
+
+var User = React.createClass({
+  handleGreetChange: function(e){
+    this.props.handleMessageChange(e.target.value);
+  },
+
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' placeholder='Enter message' value={this.props.message} onChange={this.handleGreetChange}/&gt;
+        &lt;input type='text' placeholder='Enter Name' value={this.state.name} onChange={this.handleNameChange}/&gt;
+        &lt;h3&gt;{this.props.message} {this.state.name}&lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+</code></pre>
+
+<p>Here, the function <em>updateMessage</em> will receive the updated value and will update the <em>state</em> <em>message</em>. Also, we need to pass the
+function to User component. When the user types the <em>message</em> in the textbox, the <em>handleGreetChange</em> function is called. This
+function retrieves the entered value and passes it <em>handleGreetChange</em> <em>props</em> as a parameter. Since, React implements
+unidirectional data flow, any components using the <em>props</em> <em>message</em> are updated with the updated value.</p>
+
+<p>So, the entire code is as</p>
+
+<pre><code class="javascript">var Greet = React.createClass({
+  getInitialState: function(){
+    return { message: 'Hola' };
+  },
+
+  updateMessage: function(value){
+    this.setState({message: value});
+  },
+
+  render: function(){
+    return (
+    &lt;User message={this.state.message} handleMessageChange={this.updateMessage}/&gt;
+    );
+  }
+});
+
+var User = React.createClass({
+  getInitialState: function(){
+    return { name: 'Prasad' }
+  },
+
+  handleNameChange: function(e){
+    this.setState({name: e.target.value});
+  },
+
+  handleGreetChange: function(e){
+    this.props.handleMessageChange(e.target.value);
+  },
+
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' placeholder='Enter Message' value={this.props.message} onChange={this.handleGreetChange}/&gt;
+        &lt;input type='text' placeholder='Enter Name' value={this.state.name} onChange={this.handleNameChange}/&gt;
+        &lt;h3&gt;
+          {this.props.message} {this.state.name}
+        &lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+});
+
+ReactDOM.render(
+  &lt;Greet/&gt;,
+  document.getElementById('container')
+);
+</code></pre>
+
+<p>The User component defined above can be optimized a bit as below</p>
+
+<pre><code class="javascript">var User = React.createClass({
+  getInitialState: function(){
+    return { name: 'Prasad' }
+  },
+
+  handleNameChange: function(e){
+    if(e.target.name == "message"){                                                                                         
+      this.props.handleMessageChange(e.target.value);                                                                       
+    } else {                                                                                                                
+      this.setState({name: e.target.value});                                                                                
+    }  
+  },
+
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' name="message" placeholder='Enter Message' value={this.props.message} onChange={this.handleGreetChange}/&gt;
+        &lt;input type='text' name="name" placeholder='Enter Name' value={this.state.name} onChange={this.handleNameChange}/&gt;
+        &lt;h3&gt;
+          {this.props.message} {this.state.name}
+        &lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+});
+</code></pre>
+
+<h3>Some experiments</h3>
+
+<p>Ok. Since we have a working example, lets try to make come changes and check if they work or not. If not, why?</p>
+
+<pre><code class="javascript">var Greet = React.createClass({
+  getInitialState: function(){
+    return { message: 'Hola' };
+  },
+
+  updateMessage: function(value){
+    this.setState({message: value});
+  },
+
+  render: function(){
+    return (
+    &lt;User message={this.state.message} handleMessageChange={this.updateMessage}/&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>We didn&rsquo;t pass the <em>handleMessageChange</em> <em>props</em> to the User component. Now, when we enter the <em>message</em>, the same is not being
+displayed on the page. ie. Every parent component props(state/props/function) that you want to access in the child has to be
+explicitly passed on to the child Component.</p>
+
+<pre><code class="javascript">var User = React.createClass({
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' name="message" placeholder='Enter Message' value={this.props.message} onChange={this.handleGreetChange}/&gt;
+        &lt;input type='text' name="name" placeholder='Enter Name' value={this.state.name} onChange={this.handleNameChange}/&gt;
+        &lt;h3&gt;
+          {this.state.some} {this.props.message} {this.state.name} {this.props.some}
+        &lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>Here, we are accessing data(state/props) that has not been defined in any of the components. The above code will still work as
+expected.</p>
+
+<pre><code class="javascript">var Greet = React.createClass({
+  updateMessage: function(value){
+    this.setState({message: value});
+    console.log('updated message: '+ this.state.message);
+  }
+});
+
+var User = React.createClass({
+  getInitialState: function(){
+    return { name: 'Prasad', message: this.props.message }
+  },
+
+  render: function(){
+    return (
+      &lt;div&gt;
+        &lt;input type='text' placeholder='Enter Message' value={this.props.message} onChange={this.handleGreetChange}/&gt;
+        &lt;input type='text' placeholder='Enter Name' value={this.state.name} onChange={this.handleNameChange}/&gt;
+        &lt;h3&gt;
+          {this.state.message} {this.state.name}
+        &lt;/h3&gt;
+      &lt;/div&gt;
+    );
+  }
+});
+</code></pre>
+
+<p>Here, we assigned the <em>message</em> <em>props</em> to a <em>message</em> <em>state</em> and displayed the <em>message</em> <em>state</em>. When we enter the new <em>message</em> in the input
+box, the Greet&rsquo;s <em>message</em> <em>state</em> is being updated(can be viewed in browser console) but the same in not reflected on the page. This
+is because the <em>getInitialState</em> is called only when the component is mounted. Its like an initializer/constructor.</p>
+
+<p>Summerizing, the post is about the the key concepts and their relations to get started with React. Hope it was interesting.</p>
+
+<p>Critics are welcome.</p>
+]]></content>
+  </entry>
+  
+</feed>
