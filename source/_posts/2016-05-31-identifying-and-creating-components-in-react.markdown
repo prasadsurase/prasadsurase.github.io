@@ -167,43 +167,11 @@ var TransactionsTable = React.createClass({
   }
 });
 ```
+
 Now that the skeleton is in place, lets add some data. Lets fix the form first. Since, the form is the only place in the 
 application from where data is going to be inserted, lets add states date, reason and amount to the TransactionForm component.
 
 ```javascript
-var TransactionsDetails = React.createClass({
-  getInitialState: function(){
-    return { records: [] }
-  },
-
-  addRecord: function(data){
-    var records;                                                                                                            
-    records = this.state.records.slice();                                                                                          
-    records.push(record);                                                                                                   
-    this.setState({ records: records }); 
-  },
-
-  render: function(){
-    return (
-      <div className="container">
-        <div className='row'>
-          <div className="col-md-3">
-            <TransactionsSummary />
-          </div>
-          <div className="col-md-3">
-            <TransactionForm handleNewRecord={this.addRecord}/>
-          </div>
-        </div>
-        <div className='row'>
-          <div className="col-md-6">
-            <TransactionsTable/>
-          </div>
-        </div>
-      </div>
-    );
-  }
-});
-
 var TransactionForm = React.createClass({
   getInitialState: function(){
     return { date: '', reason: '', amount: '' };
@@ -225,8 +193,6 @@ var TransactionForm = React.createClass({
 
   handleSubmit: function(e){
     e.preventDefault();
-    this.props.handleNewRecord(this.state);
-    this.setState(this.getInitialState());
   },
 
   render: function(){
@@ -241,4 +207,179 @@ var TransactionForm = React.createClass({
     );
   }
 });
+```
+Now that we have added the basic states to the form and have functions to update form states when user enters data, we need to add 
+logic to accept the form submit functionality. Here, after accepting the form data, we need to save the record in the 
+TransactionsDetails state since TransactionsSummary and TransactionsTable are the components that are going to refer to this state 
+to update themselves.
+
+```javascript
+var TransactionForm = React.createClass({
+  handleSubmit: function(e){
+    e.preventDefault();
+    this.props.handleNewRecord(this.state);
+    this.setState(this.getInitialState());
+  }
+});
+
+var TransactionsDetails = React.createClass({
+  getInitialState: function(){
+    return { records: [] };
+  },
+
+  addRecord: function(record){
+    var records = this.state.records;
+    records.push(record);
+    this.setState({ records: records });
+  },
+
+  render: function(){
+    return (
+      ...
+      <TransactionForm handleNewRecord={this.addRecord}/>
+      ...
+    );
+  }
+});
+```
+Since the form is working and the entered transactions are being saved in TransactionsDetails's state.records, we move forward by 
+displaying the dynamically added records in the table. For this, we introduce a new component named TransactionRow.
+
+```javascript
+var TransactionRow = React.createClass({
+  render: function(){
+    return (
+      <tr>
+        <td>{this.props.record.date}</td>
+        <td>{this.props.record.reason}</td>
+        <td>{this.props.record.amount}</td>
+      </tr>
+    );
+  }
+});
+
+var TransactionsTable = React.createClass({
+  render: function(){
+    var rows = [];
+    this.props.records.map(function(record, index){
+      rows.push(<TransactionRow key={index} record={record} />);
+    }.bind(this));
+    return (
+      <table>
+        <thead>
+          <tr>
+            <th> Date </th>
+            <th> Reason </th>
+            <th> Amount </th>
+          </tr>
+        </thead>
+        <tbody>
+          { rows }
+        </tbody>
+      </table>
+    );
+  }
+});
+
+var TransactionsDetails = React.createClass({
+  render: function(){
+    return (
+      ...
+      <TransactionsTable records={this.state.records}/>
+      ...
+    );
+  }
+});
+```
+Now that we have the form and the table working, the only section remaining is the TransactionsSummary. Here, we are neither going 
+to pass the state of TransactionsDetails but are passing the return values of functions.
+
+```javascript
+var TransactionsSummary = React.createClass({
+  render: function(){
+    return(
+      <ul>
+        <li>Transactions: {this.props.tCount}</li>
+        <li>Debits: 500</li>
+        <li>Credits: 600</li>
+        <li>Balance: 100</li>
+        <li>Total: 1100</li>
+      </ul>
+    );
+  }
+});
+
+
+var TransactionsDetails = React.createClass({
+  transactionsCount: function(){
+    return this.state.records.length;
+  },
+
+  render: function(){
+    return (
+      ...
+      <TransactionsSummary tCount={this.transactionsCount()}/>
+      ...
+    );
+  }
+});
+```
+
+Similarly, we implement the credits, debits, balance and total transactions sumation as 
+
+```javascript
+      var TransactionsSummary = React.createClass({
+        render: function(){
+          return(
+            <ul>
+              <li>Transactions: {this.props.tCount}</li>
+              <li>Debits: {this.props.debits}</li>
+              <li>Credits: {this.props.credits}</li>
+              <li>Balance: {this.props.balance}</li>
+              <li>Total: {this.props.total}</li>
+            </ul>
+          );
+        }
+      });
+      
+      var TransactionsDetails = React.createClass({
+        debits: function(){
+          var sum = 0;
+          var records = this.state.records.filter(function(record){ return record.amount < 0});
+          if(records.length > 0){
+            sum = records.reduce((function(a, b) {
+              return a + parseFloat(b.amount);
+              }), 0);
+          }
+          return -sum;
+        },
+
+        credits: function(){
+          var sum = 0;
+          var records = this.state.records.filter(function(record){ return record.amount >= 0});
+          if(records.length > 0){
+            sum = records.reduce((function(a, b) {
+              return a + parseFloat(b.amount);
+              }), 0);
+          }
+          return sum;
+        },
+
+        balance: function(){
+          return this.credits() - this.debits();
+        },
+
+        totalTransactions: function(){
+          return this.credits() + this.debits();
+        },
+
+        render: function(){
+          return (
+            ...
+            <TransactionsSummary tCount={this.transactionCount()} debits={this.debits()} credits={this.credits()}
+            balance={this.balance()} total={this.totalTransactions()}/>
+            ...
+          );
+        }
+      });
 ```
