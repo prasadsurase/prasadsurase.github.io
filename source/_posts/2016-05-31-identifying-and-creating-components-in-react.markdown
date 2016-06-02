@@ -13,15 +13,15 @@ We would be creating a simple React app as below:
 Here, we have 3 main sections: the summary of all the transactions, the form to enter the transaction details and the table 
 displaying the transactions. So, we can say that we have 3 components. If the component becomes complex, we can futher 
 break it down to multiple components. For now, this is enough for us to get started. All the 3 components can be collectively held 
-under a component(say TransactionsDetails)
+under a component(say _TransactionsDetails_)
 
 So, the hierarchy of components is going to be as
 
-* TransactionsDetails
-  * TransactionsSummary
-  * TransactionForm
-  * TransactionsTable
-    * TransactionRow
+* _TransactionsDetails_
+  * _TransactionsSummary_
+  * _TransactionForm_
+  * _TransactionsTable_
+    * _TransactionRow_
 
 For sake of simplicity, we will integrate Bootstrap after the entire app is up and running.
 
@@ -48,7 +48,7 @@ The basic HTML page is as below.
 </html>
 ```
 
-First, we instruct React to render the base component(TransactionsDetails) at '#container'.
+First, we instruct React to render the base component(_TransactionsDetails_) at '#container'.
 
 ```javascript
 var TransactionsDetails = React.createClass({
@@ -62,8 +62,8 @@ var TransactionsDetails = React.createClass({
 ReactDOM.render( <TransactionsDetails />, document.getElementById('container'));
 ```
 
-Then, we add the child components: TransactionsSummary, TransactionForm & TransactionsTable. We are displaying 
-TransactionsSummary & TransactionForm adjacent to each other. Below them, TransactionsTable is displayed.
+Then, we add the child components: _TransactionsSummary_, _TransactionForm_ & _TransactionsTable_. We are displaying 
+_TransactionsSummary_ & _TransactionForm_ adjacent to each other. Below them, _TransactionsTable_ is displayed.
 
 ```javascript
 var TransactionsSummary = React.createClass({
@@ -169,7 +169,7 @@ var TransactionsTable = React.createClass({
 ```
 
 Now that the skeleton is in place, lets add some data. Lets fix the form first. Since, the form is the only place in the 
-application from where data is going to be inserted, lets add states date, reason and amount to the TransactionForm component.
+application from where data is going to be inserted, lets add states *date*, *reason* and *amount* to the _TransactionForm_ component.
 
 ```javascript
 var TransactionForm = React.createClass({
@@ -195,6 +195,11 @@ var TransactionForm = React.createClass({
     e.preventDefault();
   },
 
+  handleCancel: function(e){
+    e.preventDefault();
+    this.setState(this.getInitialState());
+  },
+
   render: function(){
     return (
       <form onSubmit={this.handleSubmit}>
@@ -202,7 +207,7 @@ var TransactionForm = React.createClass({
         Reason: <input type='text' name='reason' value={this.state.reason} onChange={this.handleChange}/><br />
         Amount: <input type='integer' name='amount' value={this.state.amount} onChange={this.handleChange}/><br />
         <button type='submit'>Submit</button>
-        <button type='button'>Cancel</button>
+        <button type='button' onClick={this.handleCancel}>Cancel</button>
       </form>
     );
   }
@@ -210,7 +215,7 @@ var TransactionForm = React.createClass({
 ```
 Now that we have added the basic states to the form and have functions to update form states when user enters data, we need to add 
 logic to accept the form submit functionality. Here, after accepting the form data, we need to save the record in the 
-TransactionsDetails state since TransactionsSummary and TransactionsTable are the components that are going to refer to this state 
+_TransactionsDetails_ state since _TransactionsSummary_ and _TransactionsTable_ are the components that are going to refer to this state 
 to update themselves.
 
 ```javascript
@@ -242,8 +247,8 @@ var TransactionsDetails = React.createClass({
   }
 });
 ```
-Since the form is working and the entered transactions are being saved in TransactionsDetails's state.records, we move forward by 
-displaying the dynamically added records in the table. For this, we introduce a new component named TransactionRow.
+Since the form is working and the entered transactions are being saved in _TransactionsDetails_'s state.records, we move forward by 
+displaying the dynamically added records in the table. For this, we introduce a new component named _TransactionRow_.
 
 ```javascript
 var TransactionRow = React.createClass({
@@ -291,8 +296,8 @@ var TransactionsDetails = React.createClass({
   }
 });
 ```
-Now that we have the form and the table working, the only section remaining is the TransactionsSummary. Here, we are neither going 
-to pass the state of TransactionsDetails but are passing the return values of functions.
+Now that we have the form and the table working, the only section remaining is the _TransactionsSummary_. Here, we are neither going 
+to pass the state of _TransactionsDetails_ but are passing the return values of functions.
 
 ```javascript
 var TransactionsSummary = React.createClass({
@@ -328,58 +333,321 @@ var TransactionsDetails = React.createClass({
 Similarly, we implement the credits, debits, balance and total transactions sumation as 
 
 ```javascript
-      var TransactionsSummary = React.createClass({
-        render: function(){
-          return(
-            <ul>
-              <li>Transactions: {this.props.tCount}</li>
-              <li>Debits: {this.props.debits}</li>
-              <li>Credits: {this.props.credits}</li>
-              <li>Balance: {this.props.balance}</li>
-              <li>Total: {this.props.total}</li>
-            </ul>
-          );
-        }
-      });
-      
-      var TransactionsDetails = React.createClass({
-        debits: function(){
-          var sum = 0;
-          var records = this.state.records.filter(function(record){ return record.amount < 0});
-          if(records.length > 0){
-            sum = records.reduce((function(a, b) {
-              return a + parseFloat(b.amount);
-              }), 0);
-          }
-          return -sum;
-        },
+var TransactionsSummary = React.createClass({
+  render: function(){
+    return(
+      <ul>
+        <li>Transactions: {this.props.tCount}</li>
+        <li>Debits: {this.props.debits}</li>
+        <li>Credits: {this.props.credits}</li>
+        <li>Balance: {this.props.balance}</li>
+        <li>Total: {this.props.total}</li>
+      </ul>
+    );
+  }
+});
 
-        credits: function(){
-          var sum = 0;
-          var records = this.state.records.filter(function(record){ return record.amount >= 0});
-          if(records.length > 0){
-            sum = records.reduce((function(a, b) {
-              return a + parseFloat(b.amount);
-              }), 0);
-          }
-          return sum;
-        },
+var TransactionsDetails = React.createClass({
+  debits: function(){
+    var sum = 0;
+    var records = this.state.records.filter(function(record){ return record.amount < 0});
+    if(records.length > 0){
+      sum = records.reduce((function(a, b) {
+        return a + parseFloat(b.amount);
+      }), 0);
+    }
+    return -sum;
+  },
 
-        balance: function(){
-          return this.credits() - this.debits();
-        },
+  credits: function(){
+    var sum = 0;
+    var records = this.state.records.filter(function(record){ return record.amount >= 0});
+    if(records.length > 0){
+      sum = records.reduce((function(a, b) {
+        return a + parseFloat(b.amount);
+      }), 0);
+    }
+    return sum;
+  },
 
-        totalTransactions: function(){
-          return this.credits() + this.debits();
-        },
+  balance: function(){
+    return this.credits() - this.debits();
+  },
 
-        render: function(){
-          return (
-            ...
-            <TransactionsSummary tCount={this.transactionCount()} debits={this.debits()} credits={this.credits()}
-            balance={this.balance()} total={this.totalTransactions()}/>
-            ...
-          );
-        }
-      });
+  totalTransactions: function(){
+    return this.credits() + this.debits();
+  },
+
+  render: function(){
+    return (
+      ...
+      <TransactionsSummary tCount={this.transactionCount()} debits={this.debits()} credits={this.credits()}
+      balance={this.balance()} total={this.totalTransactions()}/>
+      ...
+    );
+  }
+});
+```
+Since we have a working example, lets integrate bootstaps for better look and feel. So, our updated code is as 
+
+```javascript
+var TransactionsSummary = React.createClass({
+  render: function(){
+    return(
+      <ul className="list-group">
+        <li className="list-group-item">
+          <span className="badge">{this.props.tCount}</span>
+          Count
+        </li>
+        <li className="list-group-item">
+          <span className="badge">{this.props.debits}</span>
+          Debits
+        </li>
+        <li className="list-group-item">
+          <span className="badge">{this.props.credits}</span>
+          Credits
+        </li>
+        <li className="list-group-item">
+          <span className="badge">{this.props.balance}</span>
+          Balance
+        </li>
+        <li className="list-group-item">
+          <span className="badge">{this.props.total}</span>
+          Total
+        </li>
+      </ul>
+    );
+  }
+});
+
+var TransactionForm = React.createClass({
+  getInitialState: function(){
+    return { date: '', reason: '', amount: '' };
+  },
+
+  handleChange: function(e){
+    switch(e.target.name){
+      case 'date':
+        this.setState({date: e.target.value});
+        break;
+      case 'reason':
+        this.setState({reason: e.target.value});
+        break;
+      case 'amount':
+        this.setState({amount: e.target.value});
+        break;
+    }
+  },
+
+  handleSubmit: function(e){
+    e.preventDefault();
+    this.props.handleNewRecord(this.state);
+    this.setState(this.getInitialState());
+  },
+
+  handleCancel: function(e){
+    e.preventDefault();
+    this.setState(this.getInitialState());
+  },
+
+  render: function(){
+    return (
+      <form onSubmit={this.handleSubmit} className="form-horizontal">
+        <div className="form-group">
+          <label for="date" className="col-sm-2 control-label">Date: </label>
+          <div className="col-sm-10">
+            <input type='text' name='date' className="form-control" value={this.state.date} onChange={this.handleChange}/>
+          </div>
+        </div>
+        <div className="form-group">
+          <label for="reason" className="col-sm-2 control-label">Reason: </label>
+          <div className="col-sm-10">
+            <input type='text' name='reason' className="form-control" value={this.state.reason} onChange={this.handleChange}/>
+          </div>
+        </div>
+        <div className="form-group">
+          <label for="amount" className="col-sm-2 control-label">Amount: </label>
+          <div className="col-sm-10">
+            <input type='integer' name='amount' className="form-control" value={this.state.amount} onChange={this.handleChange}/>
+          </div>
+        </div>
+        <div className="form-group">
+          <div className="col-sm-offset-2 col-sm-10">
+            <button className="btn btn-primary" type='submit'>Submit</button>
+            <button className="btn" type='button' onClick={this.handleCancel}>Cancel</button>
+          </div>
+        </div>
+      </form>
+    );
+  }
+});
+
+var TransactionRow = React.createClass({
+  render: function(){
+    return (
+      <tr>
+        <td>{this.props.record.date}</td>
+        <td>{this.props.record.reason}</td>
+        <td>{this.props.record.amount}</td>
+      </tr>
+    );
+  }
+});
+
+var TransactionsTable = React.createClass({
+  render: function(){
+    var rows = [];
+    this.props.records.map(function(record, index){
+      rows.push(<TransactionRow key={index} record={record} />);
+    }.bind(this));
+    return (
+      <table className="table table-striped table-hover table-bordered">
+        <thead>
+          <tr>
+            <th> Date </th>
+            <th> Reason </th>
+            <th> Amount </th>
+          </tr>
+        </thead>
+        <tbody>
+          { rows }
+        </tbody>
+      </table>
+    );
+  }
+});
+
+var TransactionsDetails = React.createClass({
+  getInitialState: function(){
+    return { records: [] };
+  },
+
+  addRecord: function(record){
+    var records = this.state.records;
+    records.push(record);
+    this.setState({ records: records });
+  },
+
+  transactionCount: function(){
+    return this.state.records.length;
+  },
+
+  debits: function(){
+    var sum = 0;
+    var records = this.state.records.filter(function(record){ return record.amount < 0});
+    if(records.length > 0){
+      sum = records.reduce((function(a, b) {
+        return a + parseFloat(b.amount);
+      }), 0);
+    }
+    return -sum;
+  },
+
+  credits: function(){
+    var sum = 0;
+    var records = this.state.records.filter(function(record){ return record.amount >= 0});
+    if(records.length > 0){
+      sum = records.reduce((function(a, b) {
+        return a + parseFloat(b.amount);
+      }), 0);
+    }
+    return sum;
+  },
+
+  balance: function(){
+    return this.credits() - this.debits();
+  },
+
+  totalTransactions: function(){
+    return this.credits() + this.debits();
+  },
+
+  render: function(){
+    return (
+      <div className="container">
+        <div className='row'>
+          <div className="col-md-offset-2 col-md-4">
+            <div className="well">
+              <TransactionsSummary tCount={this.transactionCount()} debits={this.debits()} credits={this.credits()}
+              balance={this.balance()} total={this.totalTransactions()}/>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="well">
+              <TransactionForm handleNewRecord={this.addRecord}/>
+            </div>
+          </div>
+        </div>
+        <div className='row'>
+          <div className="col-md-offset-2 col-md-8">
+            <div className="well">
+              <TransactionsTable records={this.state.records}/>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+});
+```
+Now, lets add the functionality to edit and delete transactions. firstly lets move to delete. So, we add 'Edit' & 'Delete' buttons 
+for each table row(record) and handle its click event. The record to be deleted would be sent to _TransactionsDetails_'s function 
+where *records* would be updated. Don't forget that *records* is _TransactionsDetails_'s state so it should be altered in the same 
+component.
+
+```javascript
+var TransactionRow = React.createClass({
+  handleDelete: function(e){
+    e.preventDefault();
+    this.props.handleDeleteRecord(this.props.record);
+  },
+
+  render: function(){
+    return (
+      <tr>
+        <td>{this.props.record.date}</td>
+        <td>{this.props.record.reason}</td>
+        <td>{this.props.record.amount}</td>
+        <td>
+          <button className="btn btn-primary" >Edit</button>
+          <button className="btn btn-danger" onClick={this.handleDelete}>Delete</button>
+        </td>
+      </tr>
+    );
+  }
+});
+
+var TransactionsTable = React.createClass({
+  render: function(){
+    var rows = [];
+    this.props.records.map(function(record, index){
+    rows.push(<TransactionRow key={index} record={record} handleDeleteRecord={this.props.handleDeleteRecord}/>);
+    }.bind(this));
+    return (
+      ...
+    );
+  }
+});
+
+var TransactionsDetails = React.createClass({
+  getInitialState: function(){
+    return { records: [
+      { date: '1-6-2016', reason: 'Salary', amount: 1000},
+      { date: '2-6-2015', reason: 'EMI', amount: -400}
+    ] };
+  },
+
+  deleteRecord: function(record){
+    var records = this.state.records;
+    var index  = records.indexOf(record);
+    records.splice(index, 1);
+    this.setState({ records: records });
+  },
+
+  render: function(){
+    return (
+      <TransactionsTable records={this.state.records} handleDeleteRecord={this.deleteRecord}/>
+    );
+  }
+});
 ```
