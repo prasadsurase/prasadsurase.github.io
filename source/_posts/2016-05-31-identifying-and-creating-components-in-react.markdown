@@ -9,11 +9,12 @@ In the [previous](http://prasadsurase.github.io/blog/2016/05/29/basic-concepts-i
 React. In this post, I would like to explain and demonstrate identifying and creating components.
 
 We would be creating a simple React app as below:
+{% img center /images/accounting.png 600 400 'image' 'images' %}
 
 Here, we have 3 main sections: the summary of all the transactions, the form to enter the transaction details and the table 
 displaying the transactions. So, we can say that we have 3 components. If the component becomes complex, we can futher 
-break it down to multiple components. For now, this is enough for us to get started. All the 3 components can be collectively held 
-under a component(say _TransactionsDetails_)
+break it down to multiple components. For now, this is enough for us to get started. Since all the 3 components are on the same level,
+we will hold them collectively held under a component(say _TransactionsDetails_)
 
 So, the hierarchy of components is going to be as
 
@@ -168,8 +169,9 @@ var TransactionsTable = React.createClass({
 });
 ```
 
-Now that the skeleton is in place, lets add some data. Lets fix the form first. Since, the form is the only place in the 
-application from where data is going to be inserted, lets add states *date*, *reason* and *amount* to the _TransactionForm_ component.
+Now that the components skeleton is in place, lets start making changes for dynamic data. Lets fix the _TransactionForm_ first. 
+Since, the _TransactionForm_ is the only place in the application from where data is going to be inserted, lets add states *date*, 
+*reason* and *amount* to the _TransactionForm_ component.
 
 ```javascript
 var TransactionForm = React.createClass({
@@ -213,10 +215,10 @@ var TransactionForm = React.createClass({
   }
 });
 ```
-Now that we have added the basic states to the form and have functions to update form states when user enters data, we need to add 
-logic to accept the form submit functionality. Here, after accepting the form data, we need to save the record in the 
-_TransactionsDetails_ state since _TransactionsSummary_ and _TransactionsTable_ are the components that are going to refer to this state 
-to update themselves.
+Now that we have added the basic states to the _TransactionForm_ and have functions to update form states when user enters data, 
+we need to add logic to accept the form submit functionality. Here, after accepting the form data, we need to save the record in 
+the _TransactionsDetails_ state since _TransactionsSummary_ and _TransactionsTable_ are the components that are going to refer to 
+this state to update themselves.
 
 ```javascript
 var TransactionForm = React.createClass({
@@ -590,10 +592,9 @@ var TransactionsDetails = React.createClass({
   }
 });
 ```
-Now, lets add the functionality to edit and delete transactions. firstly lets move to delete. So, we add 'Edit' & 'Delete' buttons 
-for each table row(record) and handle its click event. The record to be deleted would be sent to _TransactionsDetails_'s function 
-where *records* would be updated. Don't forget that *records* is _TransactionsDetails_'s state so it should be altered in the same 
-component.
+Now that we have a working example that looks good, lets try to add the edit and delete options to alter the transactions. For 
+this, we would be displaying the 'Edit' & 'Delete' buttons for each _TransactionRow_. When clicked on 'Delete' it should remove 
+the record from table. When clicked 'Edit' it should load the transaction in _TransactionForm_ for editing.
 
 ```javascript
 var TransactionRow = React.createClass({
@@ -621,7 +622,7 @@ var TransactionsTable = React.createClass({
   render: function(){
     var rows = [];
     this.props.records.map(function(record, index){
-    rows.push(<TransactionRow key={index} record={record} handleDeleteRecord={this.props.handleDeleteRecord}/>);
+      rows.push(<TransactionRow key={index} record={record} handleDeleteRecord={this.props.handleDeleteRecord}/>);
     }.bind(this));
     return (
       ...
@@ -651,3 +652,138 @@ var TransactionsDetails = React.createClass({
   }
 });
 ```
+
+Adding the functionality to edit the transaction record is going to be tricky because we need to inform another sibling component 
+(_TransactionForm_) that it needs to load data for a selected record. We need to identify whether a record being editted in the 
+form is new or existing. Hence, we add a new state *editing* to _TransactionForm_ which will be true if a record is being edited. 
+Also, we add a state *recordToEdit* to _TransactionsDetails_. It points to record to be editted when 'Edit' is clicked.
+
+```javascript
+var TransactionForm = React.createClass({
+  getInitialState: function(){
+    return { record: { date: '', reason: '', amount: '' }, editing: false };
+  },
+
+  componentWillReceiveProps: function(nextProps) {
+    this.setState({ record: nextProps.recordToEdit, editing: true });
+  },
+});
+
+var TransactionRow = React.createClass({
+  handleEdit: function(e){
+    e.preventDefault();
+    this.props.handleEditRecord(this.props.record);
+  },
+
+  render: function(){
+    return (
+      ...
+      <button className="btn btn-primary" onClick={this.handleEdit} >Edit</button>
+      ...
+    )
+  };
+});
+
+var TransactionsTable = React.createClass({
+  render: function(){
+    var rows = [];
+    this.props.records.map(function(record, index){
+      rows.push(<TransactionRow key={index} record={record} handleDeleteRecord={this.props.handleDeleteRecord} 
+      handleEditRecord={this.props.handleEditRecord}/>);
+    }.bind(this));
+    return (
+    ...
+    );
+  }
+});
+
+var TransactionsDetails = React.createClass({
+  getInitialState: function(){
+    return {
+      records: [ { date: '1-6-2016', reason: 'Salary', amount: 1000}, { date: '2-6-2015', reason: 'EMI', amount: -400} ],
+      recordToEdit: { date: '', reason: '', amount: '' }
+    };
+  },
+
+  editRecord: function(record){
+    this.setState({ recordToEdit: record });
+  },
+
+  render: function(){
+    return (
+      ...
+      <TransactionForm handleNewRecord={this.addRecord} recordToEdit={this.state.recordToEdit}/>
+      <TransactionsTable records={this.state.records} handleDeleteRecord={this.deleteRecord}
+        handleEditRecord={this.editRecord}/>
+      ...
+    );
+  }
+});
+```
+The function 
+*[componentWillReceiveProps](https://facebook.github.io/react/docs/component-specs.html#updating-componentwillreceiveprops)* is a 
+lifecycle function provided by React. It is called when the component is being rerendered. It has the updated props that are 
+passed as arguments to the function and can be accessed before the component is rerendered. 
+
+Now, the last functionality that we need to add is updating a TransactionsTable. We have already implemented to load a transaction 
+in the form so that it can be updated.
+
+```javascript
+var TransactionForm = React.createClass({
+  handleChange: function(e){
+    var record = this.state.record;
+    switch(e.target.name){
+      case 'date':
+        record.date = e.target.value;
+        break;
+      case 'reason':
+        record.reason = e.target.value;
+        break;
+      case 'amount':
+        record.amount = e.target.value;
+        break;
+    }
+    this.setState({ record: record });
+  },
+
+  handleSubmit: function(e){
+    e.preventDefault();
+    if(this.state.editing){
+      this.props.handleUpdateRecord(this.state.record);
+    } else {
+      this.props.handleNewRecord(this.state.record);
+    }
+    this.setState(this.getInitialState());
+  },
+
+  render: function(){
+    return (
+      <form onSubmit={this.handleSubmit} className="form-horizontal">
+        <h4>{this.state.editing ? 'Edit Record' : 'New Record'}</h4>
+        ...
+    );
+  }
+});
+
+var TransactionsDetails = React.createClass({
+  updateRecord: function(record){
+    var records = this.state.records;
+    var index = records.indexOf(record);
+    records[index] = record;
+    this.setState({ records: records, recordToEdit: {} });
+  },
+
+  render: function(){
+    return (
+      <TransactionForm handleNewRecord={this.addRecord} recordToEdit={this.state.recordToEdit}
+        handleUpdateRecord={this.updateRecord}/>
+    );
+  }
+});
+```
+
+Finally, we have a simple working application created using React. I know its not perfect and am definitely sure that there are 
+some issues with it. But, our aim was to identitying, creating and linking the components. I hope the post achieved the aim. The 
+source code can be found [here](https://github.com/prasadsurase/react-examples/blob/master/accounting.html).
+
+Hope it was interesting. Critics are welcome.
