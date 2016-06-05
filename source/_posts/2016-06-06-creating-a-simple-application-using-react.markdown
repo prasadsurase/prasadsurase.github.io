@@ -1,12 +1,14 @@
 ---
 layout: post
-title: "Identifying and creating Components in React"
-date: 2016-05-31 19:21:06 +0530
+title: "Creating a simple application using React"
+date: 2016-06-06 00:09:38 +0530
 comments: true
+published: true
 categories: react
 ---
+
 In the [previous](http://prasadsurase.github.io/blog/2016/05/29/basic-concepts-in-react/) post, we looked at the basic concepts in 
-React. In this post, I would like to explain and demonstrate identifying and creating components.
+React. In this post, I would like to explain and demonstrate identifying and creating components with a simple example app.
 
 We would be creating a simple React app as below:
 {% img center /images/accounting.png 600 400 'image' 'images' %}
