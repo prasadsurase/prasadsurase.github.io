@@ -4,7 +4,7 @@
   <title><![CDATA[a sleepy programmer's blog]]></title>
   <link href="http://prasadsurase.github.io/atom.xml" rel="self"/>
   <link href="http://prasadsurase.github.io/"/>
-  <updated>2016-06-06T00:13:44+05:30</updated>
+  <updated>2016-06-29T01:10:49+05:30</updated>
   <id>http://prasadsurase.github.io/</id>
   <author>
     <name><![CDATA[Prasad Surase]]></name>
@@ -12,6 +12,637 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Postgres Window Functions in Rails]]></title>
+    <link href="http://prasadsurase.github.io/blog/2016/06/28/postgres-window-functions-in-rails/"/>
+    <updated>2016-06-28T23:03:26+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/06/28/postgres-window-functions-in-rails</id>
+    <content type="html"><![CDATA[<p>I was working on a simple(I thought it was simple) feature wherein I wanted to list parent models. In the same table, particular
+child models for each parent were to be listed too. Say, a list of accounts, each with its latest 3 transactions. This feature
+turned out to be lot more tougher than I thought and was an excellent learning curve. Below are the details.</p>
+
+<p>Lets say that we have a simple application consisting for 2 models, Account and Transaction.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Account</span>
+</span><span class='line'>  <span class="n">has_many</span> <span class="ss">:transactions</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:account_number</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">Transaction</span>
+</span><span class='line'>  <span class="n">belongs_to</span> <span class="ss">:account</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:account</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:amount</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now, as stated earlier, we need to list the accounts and last 3 transactions for each account.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">index</span>
+</span><span class='line'>  <span class="c1"># for sake of simplicity, lets load first 5 accounts.</span>
+</span><span class='line'>  <span class="vi">@accounts</span> <span class="o">=</span> <span class="no">Account</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='haml'><span class='line'># displaying the accounts
+</span><span class='line'><span class="p">-</span> <span class="vi">@accounts</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">account</span><span class="o">|</span>
+</span><span class='line'>  <span class="p">=</span> <span class="nb">display</span> <span class="n">the</span> <span class="n">account</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">details</span>
+</span><span class='line'>  <span class="p">-</span> <span class="n">account</span><span class="o">.</span><span class="n">transactions</span><span class="o">.</span><span class="n">order</span><span class="p">(</span><span class="n">created_at</span> <span class="ss">:desc</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">t</span><span class="o">|</span>
+</span><span class='line'>    <span class="p">=</span> <span class="n">each</span> <span class="n">transaction</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">details</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is not the right solution because it fires a query to load last 3 transactions for each account causing the N+1 problem.
+&lsquo;including&rsquo; the transactions in the <em>index</em> was of no use too since that would load all the transactions for the 5 accounts and we
+just wanted the latest 3.</p>
+
+<p>I had read somewhere that we can define relations as scopes. Since we can order/filter the data in the scope, I created a scope to
+load the required transactions.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Transaction</span>
+</span><span class='line'>  <span class="n">belongs_to</span> <span class="ss">:account</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:account</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:amount</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">scope</span> <span class="ss">:latest</span><span class="p">,</span> <span class="o">-&gt;</span> <span class="p">{</span> <span class="n">order</span><span class="p">(</span><span class="ss">created_at</span><span class="p">:</span> <span class="ss">:desc</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="p">}</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Then, going ahead, decided to create a new association that would use to scope and would retrive only the required transactions
+for the account.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Account</span>
+</span><span class='line'>  <span class="n">has_many</span> <span class="ss">:transactions</span>
+</span><span class='line'>  <span class="n">has_many</span> <span class="ss">:latest_transactions</span><span class="p">,</span> <span class="o">-&gt;</span> <span class="p">{</span> <span class="n">latest</span> <span class="p">},</span> <span class="ss">class_name</span><span class="p">:</span> <span class="no">Transaction</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:account_number</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now, since we can <em>include</em> an association for eager loading, I can definitely(I though so) use the newest association to load the
+accounts(first 5) and their required(latest 3) transactions.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">index</span>
+</span><span class='line'>  <span class="c1"># for sake of simplicity, lets load first 5 accounts.</span>
+</span><span class='line'>  <span class="vi">@accounts</span> <span class="o">=</span> <span class="no">Account</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">includes</span><span class="p">(</span><span class="ss">:latest_transactions</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Turns out, this doesn&rsquo;t work as expected. The queries for the above code were ignoring the limit clause and retrieving all the
+transactions for the accounts. The only thing that worked was the ordering.</p>
+
+<p>Anyways, the limit clause in the above query wasn&rsquo;t going to solve the problem because we needed the limit clause on each
+account&rsquo;s transactions and not all the transactions as a whole. My bad.</p>
+
+<p>So, upon futher searching, I was directed to checkout the <em>windows function</em> provided in Postgres. Here is the
+<a href="https://www.postgresql.org/docs/9.5/static/functions-window.html">documentation</a> and
+<a href="https://community.modeanalytics.com/sql/tutorial/sql-window-functions/">examples</a>. Please check them out for better clarity.</p>
+
+<p>Using the windows function, we can perform aggregate(sort, order, group, limit etc) on partitioned data. The 3 function that we
+can use in the current situation are <em>row_number</em>, <em>rank</em> and <em>dense_rank</em>.</p>
+
+<ul>
+<li><strong>row_number</strong>: number of the current row within its partition, counting from 1</li>
+<li><strong>rank</strong>: rank of the current row with gaps; same as row_number of its first peer. ie, if N records have the same rank X, then the
+next record in the partition has rank N+X rather than X+1. eg, if you have 5 items at rank 2, the next rank listed would be
+ranked 7 and not 3.</li>
+<li><strong>dense_rank</strong>: rank of the current row without gaps; this function counts peer groups. ie, if N records have the same rank X, then
+the next record in the partition has rank X+1. eg, if you have 5 items at rank 2, the next rank listed would be ranked 3.</li>
+</ul>
+
+
+<p>We can use any of the 3 functions since the ranking is going to be based on created_at(DateTime) which is always going to be
+unique across all records in the table.</p>
+
+<p>So basically, we would be dividing the transactions collection based on the account_id, order each partition in descending order
+of created_at and ranking each record of the set based on created_at. So, the newest record would have the lowest rank.</p>
+
+<p>So, our basic query is going to be as</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="n">transactions</span><span class="p">.</span><span class="o">*</span><span class="p">,</span> <span class="n">dense_rank</span><span class="p">()</span> <span class="n">over</span><span class="p">(</span>
+</span><span class='line'>  <span class="n">partition</span> <span class="k">by</span> <span class="n">transactions</span><span class="p">.</span><span class="n">account_id</span>
+</span><span class='line'>  <span class="k">order</span> <span class="k">by</span> <span class="n">transactions</span><span class="p">.</span><span class="n">created_at</span> <span class="k">desc</span>
+</span><span class='line'><span class="p">)</span> <span class="k">as</span> <span class="n">t_rank</span>
+</span><span class='line'><span class="k">from</span> <span class="n">transactions</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This lists all the transactions partitioned/grouped by transactions.account_id and order in desc order of created_at. Since the
+created_at is going to be unique across all the transactions in the table, the combination of (account_id and t_rank) is unique.</p>
+
+<p>Since we need transactions with t_rank &lt;= 3, we use the above query in a nested select statement.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
+</span><span class='line'>  <span class="k">select</span> <span class="n">transactions</span><span class="p">.</span><span class="o">*</span><span class="p">,</span> <span class="n">dense_rank</span><span class="p">()</span> <span class="n">over</span><span class="p">(</span>
+</span><span class='line'>    <span class="n">partition</span> <span class="k">by</span> <span class="n">transactions</span><span class="p">.</span><span class="n">account_id</span>
+</span><span class='line'>    <span class="k">order</span> <span class="k">by</span> <span class="n">transactions</span><span class="p">.</span><span class="n">created_at</span> <span class="k">desc</span>
+</span><span class='line'>  <span class="p">)</span> <span class="k">as</span> <span class="n">t_rank</span>
+</span><span class='line'>  <span class="k">from</span> <span class="n">transactions</span>
+</span><span class='line'><span class="p">)</span> <span class="k">as</span> <span class="n">latest_transactions</span>
+</span><span class='line'><span class="k">where</span> <span class="n">t_rank</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Lastly, we don&rsquo;t need the transactions for all accounts but only for specific accounts. In out case, the first 5 accounts.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="p">(</span>
+</span><span class='line'>  <span class="k">select</span> <span class="n">transactions</span><span class="p">.</span><span class="o">*</span><span class="p">,</span> <span class="n">dense_rank</span><span class="p">()</span> <span class="n">over</span><span class="p">(</span>
+</span><span class='line'>    <span class="n">partition</span> <span class="k">by</span> <span class="n">transactions</span><span class="p">.</span><span class="n">account_id</span>
+</span><span class='line'>    <span class="k">order</span> <span class="k">by</span> <span class="n">transactions</span><span class="p">.</span><span class="n">created_at</span> <span class="k">desc</span>
+</span><span class='line'>  <span class="p">)</span> <span class="k">as</span> <span class="n">t_rank</span>
+</span><span class='line'>  <span class="k">from</span> <span class="n">transactions</span>
+</span><span class='line'>  <span class="k">where</span> <span class="n">transactions</span><span class="p">.</span><span class="n">account_id</span> <span class="k">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+</span><span class='line'><span class="p">)</span> <span class="k">as</span> <span class="n">latest_transactions</span>
+</span><span class='line'><span class="k">where</span> <span class="n">t_rank</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now, we have a query that retrieves only the last 3 transactions for specific accounts. Since, we tried using the association with
+includes but couldnt work it out, the only option is to skip includes and load the data explicitly.</p>
+
+<p>So, we declare a class to perform the task. Our class should accept an collection of accounts, retrieve the associated
+transactions using the query defined above and should assign the related transactions to each of the passed accounts.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">LatestTransactions</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="n">accounts</span><span class="p">)</span>
+</span><span class='line'>    <span class="vi">@accounts</span> <span class="o">=</span> <span class="n">accounts</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kp">attr_accessor</span> <span class="ss">:accounts</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">#generate the inner sql qwery</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">inner_query</span>
+</span><span class='line'>    <span class="n">ids</span> <span class="o">=</span> <span class="vi">@accounts</span><span class="o">.</span><span class="n">collect</span> <span class="o">&amp;</span><span class="ss">:id</span>
+</span><span class='line'>    <span class="no">Transaction</span><span class="o">.</span><span class="n">select</span><span class="p">(</span>
+</span><span class='line'>      <span class="s1">&#39;*, dense_rank() over( </span>
+</span><span class='line'><span class="s1">        partition by transactions.account_id </span>
+</span><span class='line'><span class="s1">        order by transactions.created_at</span>
+</span><span class='line'><span class="s1">      ) as t_rank&#39;</span>
+</span><span class='line'>    <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="ss">account_id</span><span class="p">:</span> <span class="n">ids</span><span class="p">)</span><span class="o">.</span><span class="n">to_sql</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">#create complete query and execute.</span>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">transactions</span>
+</span><span class='line'>    <span class="no">Transaction</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">from</span><span class="p">(</span><span class="s2">&quot;(</span><span class="si">#{</span><span class="n">inner</span><span class="si">}</span><span class="s2">) as latest_transactions&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s1">&#39;t_rank &lt;= 3&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Finally, we have a service which accepts a collection of Account and fetches their latest transactions. Now, the only problem
+remaining is grouping the transactions as per their account and assigning the group to the particular account. I fixed this by
+adding an attr_accessor to the account model.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Account</span>
+</span><span class='line'>  <span class="n">has_many</span> <span class="ss">:transactions</span>
+</span><span class='line'>  <span class="c1"># has_many :latest_transactions, -&gt; { latest }, class_name: Transaction</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">validates</span> <span class="ss">:account_number</span><span class="p">,</span> <span class="ss">presence</span><span class="p">:</span> <span class="kp">true</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kp">attr_accessor</span> <span class="ss">:latest_transactions</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">LatestTransactions</span>
+</span><span class='line'>  <span class="o">.</span><span class="n">.</span><span class="o">.</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">associate_accounts_and_transactions</span>
+</span><span class='line'>    <span class="n">grouped_transactions</span> <span class="o">=</span> <span class="n">transactions</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="o">&amp;</span><span class="ss">:account_id</span><span class="p">)</span>
+</span><span class='line'>    <span class="vi">@accounts</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">account</span><span class="o">|</span>
+</span><span class='line'>      <span class="c1"># account.latest_transactions = transactions.select{|t| t.account_id == account.id}</span>
+</span><span class='line'>      <span class="n">account</span><span class="o">.</span><span class="n">latest_transactions</span> <span class="o">=</span> <span class="n">grouped_transactions</span><span class="o">[</span><span class="n">account</span><span class="o">.</span><span class="n">id</span><span class="o">]</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can use the above service as</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">index</span>
+</span><span class='line'>  <span class="n">service</span> <span class="o">=</span> <span class="no">LatestTransactions</span><span class="o">.</span><span class="n">new</span> <span class="no">Account</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">service</span><span class="o">.</span><span class="n">associate_accounts_and_transactions</span>
+</span><span class='line'>  <span class="vi">@accounts</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">accounts</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='haml'><span class='line'># displaying the accounts and their latest 3 transactions
+</span><span class='line'><span class="p">-</span> <span class="vi">@accounts</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">account</span><span class="o">|</span>
+</span><span class='line'>  <span class="p">=</span> <span class="nb">display</span> <span class="n">the</span> <span class="n">account</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">details</span>
+</span><span class='line'>  <span class="p">-</span> <span class="n">account</span><span class="o">.</span><span class="n">latest_transactions</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">transaction</span><span class="o">|</span>
+</span><span class='line'>    <span class="p">=</span> <span class="n">each</span> <span class="n">transaction</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">details</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The above code fires only 2 queries, first to load the 5 accounts and the second to load the required transactions</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sql'><span class='line'><span class="k">SELECT</span>  <span class="ss">&quot;accounts&quot;</span><span class="p">.</span><span class="o">*</span> <span class="k">FROM</span> <span class="ss">&quot;accounts&quot;</span> <span class="k">LIMIT</span> <span class="mi">5</span>
+</span><span class='line'><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">transactions</span><span class="p">.</span><span class="o">*</span><span class="p">,</span> <span class="n">dense_rank</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span>
+</span><span class='line'>  <span class="n">PARTITION</span> <span class="k">BY</span> <span class="n">transactions</span><span class="p">.</span><span class="n">account_id</span>
+</span><span class='line'>  <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">transactions</span><span class="p">.</span><span class="n">created_at</span> <span class="k">DESC</span>
+</span><span class='line'><span class="p">)</span> <span class="k">AS</span> <span class="n">t_rank</span> <span class="k">FROM</span> <span class="ss">&quot;transactions&quot;</span> <span class="k">WHERE</span> <span class="ss">&quot;transactions&quot;</span><span class="p">.</span><span class="ss">&quot;account_id&quot;</span> <span class="k">IN</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span> <span class="k">AS</span> <span class="n">latest_transactions</span> <span class="k">WHERE</span> <span class="p">(</span><span class="n">t_rank</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The above solution is crude and can be definitely improved. Hope you enjoyed it. Critics are welcome.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Eagerloading in Rails 4+]]></title>
+    <link href="http://prasadsurase.github.io/blog/2016/06/13/eagerloading-in-rails-4-plus/"/>
+    <updated>2016-06-13T23:24:17+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/06/13/eagerloading-in-rails-4-plus</id>
+    <content type="html"><![CDATA[<p>User has_many Address
+Address belongs_to User</p>
+
+<p>Account has_many Transaction</p>
+
+<p>User.includes(:addresses) 2 queries
+User.preload(:addresses) 2 queries
+User.eager_load(:addresses) 1 query, left outer join, distinct users
+User.joins(:addresses) 1 query, inner join, duplicate users</p>
+
+<p>Rails 4.2:
+references:
+no need to use with eager_load or joins
+need to be used with includes and preload</p>
+
+<p>User.includes(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;) V/S User.includes(:addresses).where(addresses: {country:
+&lsquo;Poland&rsquo;})</p>
+
+<p>Queries</p>
+
+<h3>1</h3>
+
+<p>users = User.includes(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;) # 0 records
+users = User.preload(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;) # 0 records
+users = User.eager_load(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;) # 1 record
+users.first.addresses # 1 record</p>
+
+<p>users = User.includes(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;).references(:addresses) #1 record
+users.first.addresses # 1 record
+users = User.preload(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;).references(:addresses) #0 records
+users = User.eager_load(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;).references(:addresses) #1 record
+users.first.addresses # 1 record</p>
+
+<p>users = User.includes(:addresses).where(addresses: {country: &lsquo;Poland&rsquo;}) # 1 record
+users.first.addresses # 1 record
+users = User.preload(:addresses).where(addresses: {country: &lsquo;Poland&rsquo;}) # 0 records
+users = User.eager_load(:addresses).where(addresses: {country: &lsquo;Poland&rsquo;}) # 1 record
+users.first.addresses # 1 record</p>
+
+<h3>2</h3>
+
+<p>Get all users with all addresses with atleast one being polish
+users = User.joins(:addresses).where(&ldquo;addresses.country = ?&rdquo;, &ldquo;Poland&rdquo;)
+users.first.addresses # 2 records</p>
+
+<h3>3</h3>
+
+<p>Get users with atleast one address
+users = User.joins(:addresses)
+3 records, 2 duplicates
+users = User.joins(:addresses).distinct
+2 records, 0 duplicates</p>
+
+<h3>4</h3>
+
+<p>Get all users with no addresses
+users = User.includes(:addresses).where(addresses: {user_id: nil})</p>
+
+<p>Accounts and Transactions</p>
+
+<p>-List last 3 transactions for all accounts
+-List last 3 debit transactions for all accounts
+-List last 3 credit transactions for all accounts
+-List last 3 transactions on a particular date
+-List last 3 credit transactions greater than a particular amount
+-List last 3 debit transactions smaller than a particular amount
+-List account with no transactions</p>
+
+<p>select accounts.*,
+dense_rank() over (
+partition by transactions.account_id
+order by transactions.created_at desc
+) as transaction_rank
+from accounts left outer join transactions on accounts.id = transactions.account_id order by accounts.id;</p>
+
+<p>select id, number, created_at, updated_at from ( select accounts.*,
+dense_rank() over (
+partition by transactions.account_id
+order by transactions.created_at desc
+) as transaction_rank
+from accounts left outer join transactions on accounts.id = transactions.account_id order by accounts.id) as ranked_transactions
+where transaction_rank &lt; 4;</p>
+
+<p>I was working on a simple feature where in I wanted to list the parent models. Againt each parent model record, its latest N
+children were to to be displayed. Lets consider a sample application for simplicity.</p>
+
+<p>We are to display a list of accounts(Account). Against each account, we need to list the latest 3 transactions.</p>
+
+<p>Firstly, I included the transactions when loading the accounts and then decided to restrict the transactions count for each
+account.</p>
+
+<p>def index
+  #for sake of simplicity, lets load transactions for first 5 accounts.
+  @accounts = Account.limit(5).includes(:transactions)
+  # SELECT  &ldquo;accounts&rdquo;.<em> FROM &ldquo;accounts&rdquo; LIMIT 3
+  # SELECT &ldquo;transactions&rdquo;.</em> FROM &ldquo;transactions&rdquo; WHERE &ldquo;transactions&rdquo;.&ldquo;account_id&rdquo; IN (1, 2, 3)
+end</p>
+
+<h1>displaying the accounts</h1>
+
+<ul>
+<li>@accounts.each do |act|
+-#display the account details
+
+<ul>
+<li>account.transactions.order(created_at :desc).limit(3)</li>
+</ul>
+</li>
+</ul>
+
+
+<p>This seemed to work but wasn&rsquo;t. Its because a query was fired for loading the last 3 transactions for each account leading
+to N+1 queries.</p>
+
+<p>  # SELECT  &ldquo;transactions&rdquo;.* FROM &ldquo;transactions&rdquo; WHERE &ldquo;transactions&rdquo;.&ldquo;account_id&rdquo; = $1  ORDER BY &ldquo;transactions&rdquo;.&ldquo;created_at&rdquo; DESC
+  LIMIT 3  [[&ldquo;account_id&rdquo;, 1]]</p>
+
+<p>I had read somewhere that we can define relations as scopes. Since we can order/filter the data in the scope, I decided to preload
+the new association. It was worth a try.</p>
+
+<p>So,</p>
+
+<p>class Transaction
+  belongs_to :account</p>
+
+<p>  scope :latest, -> { order(created_at: :desc).limit(3) }
+end</p>
+
+<p>class Account
+  has_many :transactions
+  has_many :latest_transactions, -> { latest }, class_name: Transaction
+end</p>
+
+<p>Confident that this will work, I modified the original code to get the last 3 transactions for first 5 accounts.</p>
+
+<p>def index
+  @accounts = Account.limit(5).includes(:latest_transactions)
+end</p>
+
+<p>Atlast, this didnt work too. The queries for the above code were ignoring the limit clause and retrieving all the transactions for
+the accounts.</p>
+
+<p>ie, the query being fired was as</p>
+
+<p>SELECT &ldquo;transactions&rdquo;.* FROM &ldquo;transactions&rdquo; WHERE &ldquo;transactions&rdquo;.&ldquo;account_id&rdquo; IN (1, 2, 3)  ORDER BY &ldquo;transactions&rdquo;.&ldquo;created_at&rdquo;<br/>
+DESC</p>
+
+<p>Anyways, the limit clause in the above query isnt going to solve the problem because we need the limit clause on each account&rsquo;s
+transactions and not all the transactions as a whole. My bad.</p>
+
+<p>So, upon futher googling, i stumbled upon the windows function <a href="https://www.postgresql.org/docs/9.5/static/functions-window.html">https://www.postgresql.org/docs/9.5/static/functions-window.html</a>
+ and <a href="https://community.modeanalytics.com/sql/tutorial/sql-window-functions/">https://community.modeanalytics.com/sql/tutorial/sql-window-functions/</a></p>
+
+<p>So, we write our query as</p>
+
+<p>select transactions.*, dense_rank() over(
+  partition by transactions.account_id
+  order by transactions.created_at desc
+) as transaction_rank
+from transactions;</p>
+
+<p>this is going to list all the transactions grouped by transactions.account_id and order in desc order of created_at. Since the
+created_at is going to be unique across all the transactions in the table, the combination if (account_id and transaction_rank) is
+going to be unique too.</p>
+
+<p>So we select only the transactions where the transaction_rank is &lt;= 3.</p>
+
+<p>select * from (
+  select transactions.*, dense_rank() over(
+  partition by transactions.account_id
+  order by transactions.created_at desc
+  ) as transaction_rank
+  from transactions
+) as ranked_transactions
+where transaction_rank &lt;= 3;</p>
+
+<p>Since we need not load the last 3 transactions for ALL the accounts but only selected records, we need to filter the transactions
+based on transactions.account_id.</p>
+
+<p>So, we modify the above query as</p>
+
+<p>select * from(
+ select transactions.*, dense_rank() over(
+   partition by transactions.account_id
+   order by transactions.created_at desc
+ ) as transaction_rank
+ from transactions
+ where transactions.account_id in (1,2,3)
+) as ranked_transactions
+where transaction_rank &lt;= 3;</p>
+
+<p>Now, we have the query that retrieves only the last 3 transactions for specific accounts. Since, we tried using the relation with
+includes but couldnt work it out, IMO, the only option is to skip includes and load the data explicitly.</p>
+
+<p>So, we declare a service to load the latest transactions for each account.</p>
+
+<p>class LatestTransactions
+  def initialize(accounts)
+    @accounts = accounts
+  end</p>
+
+<p>  def inner_query
+  =begin
+    select transactions.<em>, dense_rank() over(                                                                                      <br/>
+      partition by transactions.account_id                                                                                         <br/>
+      order by transactions.created_at desc                                                                                        <br/>
+    ) as transaction_rank                                                                                                          <br/>
+    from transactions                                                                                                              <br/>
+    where transactions.account_id in (1,2,3)
+  =end
+  =begin
+    Transaction.select(&lsquo;</em>&rsquo;).where(account_id: Account.limit(3).pluck(:id)).to_sql
+      SELECT  &ldquo;accounts&rdquo;.&ldquo;id&rdquo; FROM &ldquo;accounts&rdquo; LIMIT 3
+      &ldquo;SELECT * FROM \"transactions\&rdquo; WHERE \&ldquo;transactions\&rdquo;.\&ldquo;account_id\&rdquo; IN (1, 2, 3)&ldquo;
+    Transaction.select(&lsquo;screw u&rsquo;).where(account_id: Account.limit(3).pluck(:id)).to_sql
+      SELECT  "accounts&rdquo;.&ldquo;id&rdquo; FROM &ldquo;accounts&rdquo; LIMIT 3
+      &ldquo;SELECT screw u FROM \"transactions\&rdquo; WHERE \&ldquo;transactions\&rdquo;.\&ldquo;account_id\&rdquo; IN (1, 2, 3)"</p>
+
+<pre><code>Transaction.select('*, dense_rank() over( partition by transactions.account_id order by transactions.created_at) as 
+transaction_rank').where(account_id: Account.limit(3).pluck(:id)).to_sql
+  SELECT  "accounts"."id" FROM "accounts" LIMIT 3
+  "SELECT *, dense_rank() over( partition by transactions.account_id order by transactions.created_at) as transaction_rank 
+  FROM \"transactions\" WHERE \"transactions\".\"account_id\" IN (1, 2, 3)" 
+</code></pre>
+
+<p>  =end</p>
+
+<p>  #since we dont need to fire query to load the account&rsquo;s id and that we only need the sql query and not the actual list of
+  transactions, we use to_sql.
+    ids = @accounts.collect &amp;:id
+    Transaction.select(&lsquo;*, dense_rank() over( partition by transactions.account_id order by transactions.created_at) as
+    transaction_rank&rsquo;).where(account_id: ids).to_sql
+  end</p>
+
+<p>  def transactions
+    =begin
+      Transaction.select(&lsquo;<em>&rsquo;).from(&ldquo;something&rdquo;).to_sql
+      &ldquo;SELECT * FROM something&rdquo;
+    =end
+    Transaction.select(&lsquo;</em>&rsquo;).from(&ldquo;(#{inner}) as latest_transactions&rdquo;).where(&lsquo;transaction_rank &lt;= 3&rsquo;)
+    SELECT * FROM (SELECT *, dense_rank() over( partition by transactions.account_id order by transactions.created_at) as
+    transaction_rank FROM &ldquo;transactions&rdquo; WHERE &ldquo;transactions&rdquo;.&ldquo;account_id&rdquo; IN (1, 2, 3)) as latest_transactions WHERE
+    (transaction_rank &lt;= 3)
+  end
+end</p>
+
+<p>now, we have a service which accepts a collection of Account and fetches its latest transactions. Now, the only problem remaining
+is grouping the transactions as per their account and assigning the group to the particular account. This i solved by adding an
+attr_accessor to the account model.</p>
+
+<p>class LatestTransactions
+  def associate_accounts_and_transactions
+    grouped_transactions = transactions.group_by(&amp;:account_id)
+    @accounts.each do |account|
+      account.latest_trans = grouped_transactions[account.id]
+      account.latest_trans = transactions.select{|t| t.account_id == account.id}
+    end
+  end
+end</p>
+
+<p>The above solution is crude and can be definitely improved.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Creating a Simple Application Using React]]></title>

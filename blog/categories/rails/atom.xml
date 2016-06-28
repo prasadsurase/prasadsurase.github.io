@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Rails | a sleepy programmer's blog]]></title>
+  <link href="http://prasadsurase.github.io/blog/categories/rails/atom.xml" rel="self"/>
+  <link href="http://prasadsurase.github.io/"/>
+  <updated>2016-06-29T01:10:49+05:30</updated>
+  <id>http://prasadsurase.github.io/</id>
+  <author>
+    <name><![CDATA[Prasad Surase]]></name>
+    <email><![CDATA[prasadsurase@gmail.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Postgres Window Functions in Rails]]></title>
+    <link href="http://prasadsurase.github.io/blog/2016/06/28/postgres-window-functions-in-rails/"/>
+    <updated>2016-06-28T23:03:26+05:30</updated>
+    <id>http://prasadsurase.github.io/blog/2016/06/28/postgres-window-functions-in-rails</id>
+    <content type="html"><![CDATA[<p>I was working on a simple(I thought it was simple) feature wherein I wanted to list parent models. In the same table, particular
+child models for each parent were to be listed too. Say, a list of accounts, each with its latest 3 transactions. This feature
+turned out to be lot more tougher than I thought and was an excellent learning curve. Below are the details.</p>
+
+<p>Lets say that we have a simple application consisting for 2 models, Account and Transaction.</p>
+
+<pre><code class="ruby">class Account
+  has_many :transactions
+
+  validates :account_number, presence: true
+end
+
+class Transaction
+  belongs_to :account
+
+  validates :account, presence: true
+  validates :amount, presence: true
+end
+</code></pre>
+
+<p>Now, as stated earlier, we need to list the accounts and last 3 transactions for each account.</p>
+
+<pre><code class="ruby">def index
+  # for sake of simplicity, lets load first 5 accounts.
+  @accounts = Account.limit(5)
+end
+</code></pre>
+
+<pre><code class="haml"># displaying the accounts
+- @accounts.each do |account|
+  = display the account's details
+  - account.transactions.order(created_at :desc).limit(3).each do |t|
+    = each transaction's details
+</code></pre>
+
+<p>This is not the right solution because it fires a query to load last 3 transactions for each account causing the N+1 problem.
+&lsquo;including&rsquo; the transactions in the <em>index</em> was of no use too since that would load all the transactions for the 5 accounts and we
+just wanted the latest 3.</p>
+
+<p>I had read somewhere that we can define relations as scopes. Since we can order/filter the data in the scope, I created a scope to
+load the required transactions.</p>
+
+<pre><code class="ruby">class Transaction
+  belongs_to :account
+
+  validates :account, presence: true
+  validates :amount, presence: true
+
+  scope :latest, -&gt; { order(created_at: :desc).limit(3) }
+end
+</code></pre>
+
+<p>Then, going ahead, decided to create a new association that would use to scope and would retrive only the required transactions
+for the account.</p>
+
+<pre><code class="ruby">class Account
+  has_many :transactions
+  has_many :latest_transactions, -&gt; { latest }, class_name: Transaction
+
+  validates :account_number, presence: true
+end
+</code></pre>
+
+<p>Now, since we can <em>include</em> an association for eager loading, I can definitely(I though so) use the newest association to load the
+accounts(first 5) and their required(latest 3) transactions.</p>
+
+<pre><code class="ruby">def index
+  # for sake of simplicity, lets load first 5 accounts.
+  @accounts = Account.limit(5).includes(:latest_transactions)
+end
+</code></pre>
+
+<p>Turns out, this doesn&rsquo;t work as expected. The queries for the above code were ignoring the limit clause and retrieving all the
+transactions for the accounts. The only thing that worked was the ordering.</p>
+
+<p>Anyways, the limit clause in the above query wasn&rsquo;t going to solve the problem because we needed the limit clause on each
+account&rsquo;s transactions and not all the transactions as a whole. My bad.</p>
+
+<p>So, upon futher searching, I was directed to checkout the <em>windows function</em> provided in Postgres. Here is the
+<a href="https://www.postgresql.org/docs/9.5/static/functions-window.html">documentation</a> and
+<a href="https://community.modeanalytics.com/sql/tutorial/sql-window-functions/">examples</a>. Please check them out for better clarity.</p>
+
+<p>Using the windows function, we can perform aggregate(sort, order, group, limit etc) on partitioned data. The 3 function that we
+can use in the current situation are <em>row_number</em>, <em>rank</em> and <em>dense_rank</em>.</p>
+
+<ul>
+<li><strong>row_number</strong>: number of the current row within its partition, counting from 1</li>
+<li><strong>rank</strong>: rank of the current row with gaps; same as row_number of its first peer. ie, if N records have the same rank X, then the
+next record in the partition has rank N+X rather than X+1. eg, if you have 5 items at rank 2, the next rank listed would be
+ranked 7 and not 3.</li>
+<li><strong>dense_rank</strong>: rank of the current row without gaps; this function counts peer groups. ie, if N records have the same rank X, then
+the next record in the partition has rank X+1. eg, if you have 5 items at rank 2, the next rank listed would be ranked 3.</li>
+</ul>
+
+
+<p>We can use any of the 3 functions since the ranking is going to be based on created_at(DateTime) which is always going to be
+unique across all records in the table.</p>
+
+<p>So basically, we would be dividing the transactions collection based on the account_id, order each partition in descending order
+of created_at and ranking each record of the set based on created_at. So, the newest record would have the lowest rank.</p>
+
+<p>So, our basic query is going to be as</p>
+
+<pre><code class="sql">select transactions.*, dense_rank() over(                                                                                         
+  partition by transactions.account_id                                                                                            
+  order by transactions.created_at desc                                                                                           
+) as t_rank                                                                                                             
+from transactions;
+</code></pre>
+
+<p>This lists all the transactions partitioned/grouped by transactions.account_id and order in desc order of created_at. Since the
+created_at is going to be unique across all the transactions in the table, the combination of (account_id and t_rank) is unique.</p>
+
+<p>Since we need transactions with t_rank &lt;= 3, we use the above query in a nested select statement.</p>
+
+<pre><code class="sql">select * from (                                                                                                                   
+  select transactions.*, dense_rank() over(                                                                                       
+    partition by transactions.account_id                                                                                            
+    order by transactions.created_at desc                                                                                           
+  ) as t_rank                                                                                                           
+  from transactions                                                                                                               
+) as latest_transactions                                                                                                          
+where t_rank &lt;= 3; 
+</code></pre>
+
+<p>Lastly, we don&rsquo;t need the transactions for all accounts but only for specific accounts. In out case, the first 5 accounts.</p>
+
+<pre><code class="sql">select * from (                                                                                                                   
+  select transactions.*, dense_rank() over(                                                                                       
+    partition by transactions.account_id                                                                                            
+    order by transactions.created_at desc                                                                                           
+  ) as t_rank                                                                                                           
+  from transactions
+  where transactions.account_id in (1,2,3,4,5)
+) as latest_transactions                                                                                                          
+where t_rank &lt;= 3;
+</code></pre>
+
+<p>Now, we have a query that retrieves only the last 3 transactions for specific accounts. Since, we tried using the association with
+includes but couldnt work it out, the only option is to skip includes and load the data explicitly.</p>
+
+<p>So, we declare a class to perform the task. Our class should accept an collection of accounts, retrieve the associated
+transactions using the query defined above and should assign the related transactions to each of the passed accounts.</p>
+
+<pre><code class="ruby">class LatestTransactions
+  def initialize(accounts)
+    @accounts = accounts
+  end
+
+  attr_accessor :accounts
+
+  #generate the inner sql qwery
+  def inner_query
+    ids = @accounts.collect &amp;:id
+    Transaction.select(
+      '*, dense_rank() over( 
+        partition by transactions.account_id 
+        order by transactions.created_at
+      ) as t_rank'
+    ).where(account_id: ids).to_sql
+  end
+
+  #create complete query and execute.
+  def transactions
+    Transaction.select('*').from("(#{inner}) as latest_transactions").where('t_rank &lt;= 3')
+  end
+end
+</code></pre>
+
+<p>Finally, we have a service which accepts a collection of Account and fetches their latest transactions. Now, the only problem
+remaining is grouping the transactions as per their account and assigning the group to the particular account. I fixed this by
+adding an attr_accessor to the account model.</p>
+
+<pre><code class="ruby">class Account
+  has_many :transactions
+  # has_many :latest_transactions, -&gt; { latest }, class_name: Transaction
+
+  validates :account_number, presence: true
+
+  attr_accessor :latest_transactions
+end
+
+class LatestTransactions
+  ...
+
+  def associate_accounts_and_transactions
+    grouped_transactions = transactions.group_by(&amp;:account_id)
+    @accounts.each do |account|
+      # account.latest_transactions = transactions.select{|t| t.account_id == account.id}
+      account.latest_transactions = grouped_transactions[account.id]
+    end
+  end
+end
+</code></pre>
+
+<p>We can use the above service as</p>
+
+<pre><code class="ruby">def index
+  service = LatestTransactions.new Account.limit(5)
+  service.associate_accounts_and_transactions
+  @accounts = service.accounts
+end
+</code></pre>
+
+<pre><code class="haml"># displaying the accounts and their latest 3 transactions
+- @accounts.each do |account|
+  = display the account's details
+  - account.latest_transactions.each do |transaction|
+    = each transaction's details
+</code></pre>
+
+<p>The above code fires only 2 queries, first to load the 5 accounts and the second to load the required transactions</p>
+
+<pre><code class="sql">SELECT  "accounts".* FROM "accounts" LIMIT 5
+SELECT * FROM (SELECT transactions.*, dense_rank() OVER (
+  PARTITION BY transactions.account_id
+  ORDER BY transactions.created_at DESC
+) AS t_rank FROM "transactions" WHERE "transactions"."account_id" IN (1, 2, 3, 4, 5)) AS latest_transactions WHERE (t_rank &lt;= 3)
+</code></pre>
+
+<p>The above solution is crude and can be definitely improved. Hope you enjoyed it. Critics are welcome.</p>
+]]></content>
+  </entry>
+  
+</feed>
